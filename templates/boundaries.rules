@@ -1,0 +1,22 @@
+# Architectural boundary rules — enforced by .claude/hooks/boundary-check.sh
+# on every edit, and swept by /validate-phase and /refresh-index.
+#
+# Syntax (one directive per line, # comments allowed):
+#   layer <name> <dir-prefix>/     declares a layer as a directory prefix
+#   deny <from> -> <to>            files under <from> may not import from <to>
+#
+# Only encode edges the codebase actually respects (or has decided to adopt via
+# ADR). A rule the code already violates makes the hook cry wolf on every edit.
+# Changing this file requires an ADR — the prose twin of these rules lives in
+# docs/constraints.md §Layering.
+#
+# Example (taskboard: routes → services → db, no skipping, no upward imports):
+
+layer routes src/routes/
+layer services src/services/
+layer db src/db/
+
+deny routes -> db
+deny services -> routes
+deny db -> services
+deny db -> routes
