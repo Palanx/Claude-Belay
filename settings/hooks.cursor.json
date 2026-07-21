@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      { "command": "./.claude/hooks/cursor-adapter.sh" }
+    ],
+    "beforeShellExecution": [
+      { "command": "./.claude/hooks/cursor-adapter.sh" }
+    ]
+  }
+}

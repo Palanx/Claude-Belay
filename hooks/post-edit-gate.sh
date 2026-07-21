@@ -11,6 +11,7 @@ set -u
 hook_init
 
 FILE="$(json_get .tool_input.file_path)" || exit 0
+[ -n "$FILE" ] || FILE="$(json_get .file_path)"   # Cursor payload shape (via cursor-adapter.sh)
 [ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 
 case "$FILE" in

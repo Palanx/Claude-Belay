@@ -24,6 +24,7 @@ CMD="$(json_get .tool_input.command)" || {
     *) exit 0 ;;
   esac
 }
+[ -n "$CMD" ] || CMD="$(json_get .command)"   # Cursor payload shape (via cursor-adapter.sh)
 # `git` as a word, then a `commit` subcommand, allowing option tokens between
 # (catches `git -C dir commit`, `git --git-dir=… commit`). Over-matching is
 # safe: an extra scan only blocks if a secret is actually staged.

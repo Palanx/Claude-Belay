@@ -51,7 +51,7 @@ State layout in an installed project:
 CLAUDE.md                          # <150 lines, pointer table — the only always-loaded file
 .claude/
 ├── commands/*.md                  # the nine slash commands
-├── hooks/                         # post-edit-gate, boundary-check, pre-commit-security (+ lib/)
+├── hooks/                         # post-edit-gate, boundary-check, pre-commit-security (+ lib/, cursor-adapter)
 ├── settings.json                  # hook wiring (PostToolUse Edit|Write, PreToolUse Bash)
 └── workflow/
     ├── toolchain.json             # detected commands per category + explicit gaps (generated)
@@ -93,6 +93,30 @@ cd /path/to/repo && claude
 
 Then answer the "Decisions needed" section of `docs/adoption-report.md` — those answers
 become real ADRs — and start with `/plan-feature <first change>`.
+
+### Cursor CLI / IDE
+
+```
+./install.sh /path/to/repo --cursor
+```
+
+Installs everything above **plus** Cursor wiring, so the same repo works from Claude
+Code and from Cursor (`cursor-agent` or the IDE):
+
+- The nine commands are copied to `.cursor/commands/` — same slash commands, same
+  markdown. Cursor doesn't substitute `$ARGUMENTS`/`$1`; it appends the argument text
+  to the prompt, which the commands' own "Arguments:" sections already make clear.
+- `.cursor/hooks.json` routes `afterFileEdit` and `beforeShellExecution` through
+  `.claude/hooks/cursor-adapter.sh`, which runs the same three hooks. The commit
+  security gate blocks for real (`permission: deny`); the post-edit gates are advisory
+  only, because Cursor ignores `afterFileEdit` output — the fix-it-same-turn loop is
+  weaker there, and `/validate-phase` remains the hard gate.
+- `AGENTS.md` is symlinked to `CLAUDE.md` (Cursor reads `AGENTS.md`), so there is one
+  source of truth for both agents.
+
+All state (`.claude/workflow/`, `docs/`) is shared — sessions from either agent
+converge on the same files (P6/P8). Cursor's hooks are beta; if an event name or
+payload field changes upstream, only `cursor-adapter.sh` needs updating.
 
 ### What to customize vs leave alone
 

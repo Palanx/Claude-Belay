@@ -20,6 +20,7 @@ RULES="$ROOT/.claude/workflow/boundaries.rules"
 [ -f "$RULES" ] || exit 0
 
 FILE="$(json_get .tool_input.file_path)" || exit 0
+[ -n "$FILE" ] || FILE="$(json_get .file_path)"   # Cursor payload shape (via cursor-adapter.sh)
 [ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 case "$FILE" in
   "$ROOT"/*) REL="${FILE#"$ROOT"/}" ;;
