@@ -7,7 +7,7 @@
 #   $ROOT        project root ($CLAUDE_PROJECT_DIR, falling back to $PWD)
 #   $TOOLCHAIN   path to .claude/workflow/toolchain.json (may not exist)
 #   $HOOK_INPUT  raw stdin JSON from Claude Code
-#   json_get, json_file_get, tc_cmd, tc_file_cmd, gap_warn, run_on_file
+#   json_get, json_file_get, tc_cmd, tc_file_cmd, tc_exempt_prefixes, gap_warn, run_on_file
 #
 # JSON parsing needs jq or python3. Every machine that runs Claude Code has a
 # shell; nearly every one has python3; most have jq. If neither exists the hook
@@ -72,6 +72,25 @@ tc_cmd() {
 tc_file_cmd() {
   [ -f "$TOOLCHAIN" ] || return 0
   json_file_get "$TOOLCHAIN" ".file_commands.$1.$2"
+}
+
+# tc_exempt_prefixes — newline-separated path prefixes from toolchain.json's
+# "exempt" array (engine-owned / third-party trees the edit gates must skip).
+tc_exempt_prefixes() {
+  [ -f "$TOOLCHAIN" ] || return 0
+  if command -v jq >/dev/null 2>&1; then
+    jq -r '(.exempt // [])[]' "$TOOLCHAIN" 2>/dev/null
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$TOOLCHAIN" <<'PY'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+for p in data.get("exempt", []):
+    print(p)
+PY
+  fi
 }
 
 # gap_warn <category> <what was not checked>

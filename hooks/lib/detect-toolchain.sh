@@ -9,6 +9,7 @@
 #   "stacks":       ["node", "python", ...],
 #   "commands":     { project-wide: test, lint, typecheck, audit, secrets },
 #   "file_commands": { "<ext>": { per-file: lint, format, typecheck } },
+#   "exempt":       [ path prefixes the edit gate must skip (engine/third-party) ],
 #   "gaps":         [ human-readable sentences: what is missing + a concrete fix ]
 # }
 #
@@ -49,8 +50,24 @@ pkg_dep() { # pkg_dep <name> — 0 if package.json mentions the dependency
   [ -f package.json ] && grep -q "\"$1\"" package.json
 }
 
+# csharpier_cmd — per-file C# format template, empty if csharpier unavailable.
+# dotnet format is not an option here: it loads an MSBuild workspace (multi-
+# second, and absent on a fresh Unity clone). csharpier is workspace-free.
+csharpier_cmd() {
+  local base=""
+  if have csharpier; then base="csharpier"
+  elif have dotnet && dotnet csharpier --version >/dev/null 2>&1; then base="dotnet csharpier"
+  fi
+  [ -n "$base" ] || return 0
+  # csharpier 1.0 renamed the CLI: `csharpier format <file>`; older takes the file directly.
+  if $base format --version >/dev/null 2>&1; then echo "$base format {file}"
+  else echo "$base {file}"
+  fi
+}
+
 STACKS=()
 GAPS=()
+EXEMPT=()   # path prefixes the edit gates must never touch (engine/third-party)
 CMD_TEST="" CMD_LINT="" CMD_TYPECHECK="" CMD_AUDIT="" CMD_SECRETS=""
 FILE_BLOCKS=""   # accumulated JSON fragments for file_commands
 
@@ -170,6 +187,75 @@ if [ -f Cargo.toml ] && have cargo; then
   fi
 fi
 
+# ---------- Unity ----------
+# Only source-code gates: scenes/prefabs/assets are editor-authored and out of
+# scope by design. Compile and tests live inside the Unity editor — the .csproj
+# files are editor-generated, gitignored, and reference the local install, so
+# dotnet build/test/format would fail on a fresh clone. Honest gaps instead.
+if [ -f ProjectSettings/ProjectVersion.txt ]; then
+  STACKS+=("unity")
+  CS_FMT="$(csharpier_cmd)"
+  if [ -n "$CS_FMT" ]; then file_block "" "$CS_FMT" "" cs
+  else gap "format (unity): csharpier not found — the only workspace-free sub-second C# formatter. Fix: dotnet tool install -g csharpier."
+  fi
+  gap "lint/typecheck (unity): Roslyn needs the editor-generated workspace — no per-file check exists; compile errors surface in the Unity editor."
+  gap "test (unity): Unity Test Framework is editor-bound. If wanted at /validate-phase, add to toolchain.json by hand: \"<UnityEditor> -batchmode -runTests -projectPath .\" (slow: minutes)."
+  gap "audit (unity): UPM has no vulnerability audit tool — permanent gap, not fixable."
+  EXEMPT+=("Assets/Plugins/" "Assets/TextMesh Pro/" "Library/" "Temp/" "obj/")
+fi
+
+# ---------- Godot ----------
+if [ -f project.godot ]; then
+  STACKS+=("godot")
+  GD_FMT="" GD_LINT=""
+  have gdformat && GD_FMT="gdformat {file}"
+  if have gdlint; then GD_LINT="gdlint {file}"; append CMD_LINT "gdlint ."; fi
+  file_block "$GD_LINT" "$GD_FMT" "" gd
+  if [ -z "$GD_FMT$GD_LINT" ] \
+     && find . -name '*.gd' -not -path './.godot/*' -not -path './addons/*' -print -quit 2>/dev/null | grep -q .; then
+    gap "lint/format (gdscript): gdtoolkit not on PATH. Fix: pip install gdtoolkit (gives gdformat + gdlint)."
+  fi
+  # Godot 4 C# builds headlessly — the csproj is real and committed (unlike Unity).
+  if grep -qs Godot.NET.Sdk ./*.csproj; then
+    if have dotnet; then
+      append CMD_TYPECHECK "dotnet build --nologo"
+      CS_FMT="$(csharpier_cmd)"
+      if [ -n "$CS_FMT" ]; then file_block "" "$CS_FMT" "" cs
+      else gap "format (godot-c#): csharpier not found. Fix: dotnet tool install -g csharpier."
+      fi
+      if grep -rqs Microsoft.NET.Test.Sdk --include='*.csproj' .; then
+        append CMD_TEST "dotnet test --nologo"
+      else
+        gap "test (godot): no dotnet test project found; gdUnit4/GUT tests run inside the Godot runtime — wire a headless command into toolchain.json by hand if wanted."
+      fi
+      # dotnet list exits 0 even with findings on most SDKs; awk supplies the exit code.
+      append CMD_AUDIT "dotnet list package --vulnerable 2>&1 | awk '/has the following vulnerable packages/{f=1} {print} END{exit f}'"
+    else
+      gap "godot-c#: .csproj present but dotnet not on PATH. Fix: install the .NET SDK."
+    fi
+  fi
+  EXEMPT+=("addons/" ".godot/")
+fi
+
+# ---------- Unreal ----------
+# clang-format only, and only with a repo .clang-format: LLVM defaults vs Epic
+# style would reformat every file. clang-tidy / builds / Automation tests need
+# a per-machine engine install and UBT — deliberate non-goals for hooks.
+if ls ./*.uproject >/dev/null 2>&1; then
+  STACKS+=("unreal")
+  if have clang-format && [ -f .clang-format ]; then
+    file_block "" "clang-format -i {file}" "" cpp h hpp inl
+  elif have clang-format; then
+    gap "format (unreal): clang-format is installed but the repo has no .clang-format — LLVM defaults would reformat every file (Epic style is tabs/Allman). Fix: add a .clang-format, then re-detect."
+  else
+    gap "format (unreal): clang-format not on PATH. Fix: install clang-format and add an Epic-style .clang-format."
+  fi
+  gap "lint/typecheck (unreal): clang-tidy needs a UBT compile database and built .generated.h headers — not viable as an edit hook; deliberate non-goal."
+  gap "test/build (unreal): UnrealBuildTool is engine-install-bound. If wanted at /validate-phase, add to toolchain.json by hand, e.g. \"<Engine>/Build/BatchFiles/Linux/Build.sh <Target>Editor Linux Development\" (slow: minutes)."
+  gap "audit (unreal): no vulnerability audit exists for engine/Marketplace plugins — permanent gap."
+  EXEMPT+=("Intermediate/" "Saved/" "Binaries/" "DerivedDataCache/" "Source/ThirdParty/")
+fi
+
 # ---------- Makefile fallback for still-empty categories ----------
 if [ -f Makefile ]; then
   [ -z "$CMD_TEST" ] && grep -qE '^test:' Makefile && CMD_TEST="make test"
@@ -183,7 +269,7 @@ else
   gap "secrets: gitleaks not on PATH — pre-commit hook falls back to builtin grep patterns (weaker). Fix: install gitleaks (https://github.com/gitleaks/gitleaks)."
 fi
 
-[ ${#STACKS[@]} -eq 0 ] && gap "stack: no known stack marker found (package.json / pyproject.toml / go.mod / Cargo.toml / Makefile). Fill .claude/workflow/toolchain.json commands by hand."
+[ ${#STACKS[@]} -eq 0 ] && gap "stack: no known stack marker found (package.json / pyproject.toml / go.mod / Cargo.toml / ProjectSettings/ProjectVersion.txt / project.godot / *.uproject / Makefile). Fill .claude/workflow/toolchain.json commands by hand."
 
 # ---------- Emit JSON ----------
 DETECTED_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo 'no-commits')"
@@ -209,6 +295,11 @@ DETECTED_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo 'no-commits')"
   echo "  \"file_commands\": {"
   [ -n "$FILE_BLOCKS" ] && echo "$FILE_BLOCKS"
   echo "  },"
+  printf '  "exempt": ['
+  first=1; for e in ${EXEMPT[@]+"${EXEMPT[@]}"}; do
+    [ $first -eq 0 ] && printf ', '; printf '"%s"' "$(json_escape "$e")"; first=0
+  done
+  echo "],"
   printf '  "gaps": ['
   first=1; for g in ${GAPS[@]+"${GAPS[@]}"}; do
     [ $first -eq 0 ] && printf ','; printf '\n    "%s"' "$(json_escape "$g")"; first=0

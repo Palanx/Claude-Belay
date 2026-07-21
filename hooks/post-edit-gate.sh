@@ -19,9 +19,18 @@ case "$FILE" in
 esac
 
 # Docs, workflow config, and data files are not source — not gated.
+# Second line: engine asset text (Unity YAML, Godot resources) — editor-authored,
+# out of scope by design, and would otherwise gap_warn on every touch.
 case "$REL" in
   .claude/*|docs/*|*.md|*.txt|*.json|*.yml|*.yaml|*.toml|*.lock|*.csv) exit 0 ;;
+  *.meta|*.unity|*.prefab|*.asset|*.mat|*.anim|*.controller|*.asmdef|*.tscn|*.tres|*.import|*.uproject|*.uplugin) exit 0 ;;
 esac
+
+# Engine-owned / third-party trees declared by detection are not gated either.
+while IFS= read -r p; do
+  [ -n "$p" ] || continue
+  case "$REL" in "$p"*) exit 0 ;; esac
+done < <(tc_exempt_prefixes)
 
 ext="${FILE##*.}"
 FMT="$(tc_file_cmd "$ext" format)"

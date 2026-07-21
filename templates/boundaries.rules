@@ -7,6 +7,14 @@
 #
 # Only encode edges the codebase actually respects (or has decided to adopt via
 # ADR). A rule the code already violates makes the hook cry wolf on every edit.
+#
+# The engine edge ("simulation must not touch UnityEngine / Godot / Unreal") is
+# NOT expressible here — layers are repo directory prefixes and the engine is
+# not a directory in the repo. Enforce it with the build system instead, which
+# catches fully-qualified names and transitive deps that grep cannot:
+#   Unity:  asmdef on the sim dir with "noEngineReferences": true
+#   Godot:  a domain .csproj that does not reference Godot.NET.Sdk
+#   Unreal: a sim module whose Build.cs does not depend on Engine
 # Changing this file requires an ADR — the prose twin of these rules lives in
 # docs/constraints.md §Layering.
 #
