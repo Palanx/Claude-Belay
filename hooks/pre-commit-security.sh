@@ -34,6 +34,20 @@ fi
 cd "$ROOT" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
+# --- 0. Protected-branch guard (opt-in) -------------------------------------
+# One anchored regex per line in .claude/workflow/protected-branches blocks
+# direct commits on matching branches. No file = no check, zero cost.
+PROT="$ROOT/.claude/workflow/protected-branches"
+BRANCH="$(git branch --show-current 2>/dev/null)"
+if [ -f "$PROT" ] && [ -n "$BRANCH" ] \
+   && printf '%s' "$BRANCH" | grep -qEf <(grep -vE '^[[:space:]]*(#|$)' "$PROT"); then
+  {
+    echo "COMMIT BLOCKED: branch '$BRANCH' is protected (.claude/workflow/protected-branches)."
+    echo "Create a working branch first: git switch -c <name>"
+  } >&2
+  exit 2
+fi
+
 errs=""
 
 # --- 1. Secret scan on staged content -------------------------------------

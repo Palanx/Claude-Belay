@@ -57,7 +57,8 @@ CLAUDE.md                          # <150 lines, pointer table — the only alwa
     ├── toolchain.json             # detected commands per category + explicit gaps (generated)
     ├── boundaries.rules           # layer + deny lines (executable form of the dependency rule)
     ├── belay-version              # package commit this install came from (stamped by install.sh)
-    └── secret-allowlist           # optional: regexes to ignore in the builtin secret scan
+    ├── secret-allowlist           # optional: regexes to ignore in the builtin secret scan
+    └── protected-branches         # optional: branch regexes where direct commits are blocked
 docs/
 ├── product/requirements.md        # what & why (bootstrap) 
 ├── constraints.md                 # standing rules: layering, invariants, observed conventions
@@ -128,6 +129,12 @@ echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}' \
   | .claude/hooks/pre-commit-security.sh; echo "exit=$?" # expect: COMMIT BLOCKED ... exit=2
 git rm -f --cached smoke.txt && rm -f smoke.txt
 
+# 4b. Protected-branch guard blocks a commit on a listed branch (opt-in feature)
+echo '^smoke-test$' > .claude/workflow/protected-branches
+echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}' \
+  | .claude/hooks/pre-commit-security.sh; echo "exit=$?" # expect: COMMIT BLOCKED ... exit=2
+rm .claude/workflow/protected-branches
+
 # 5. Index builds and self-reports freshness
 scripts/build-index.sh                                   # expect: "index written: docs/index (...)"
 scripts/build-index.sh --check                           # expect: "index fresh (<hash>)"
@@ -146,7 +153,7 @@ not proceed to real work.
 |---|---|---|
 | `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | format + lint + file-scoped typecheck on the touched file; failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
 | `boundary-check.sh` | `PostToolUse`, matcher `Edit\|Write` | grep-heuristic check of `boundaries.rules` deny edges on the touched file |
-| `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit** |
+| `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit** |
 
 The two toolchain hooks (`post-edit-gate.sh`, `pre-commit-security.sh`) read
 `.claude/workflow/toolchain.json` and never skip silently: a missing tool
