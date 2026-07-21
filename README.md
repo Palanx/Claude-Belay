@@ -142,7 +142,8 @@ not proceed to real work.
 | `boundary-check.sh` | `PostToolUse`, matcher `Edit\|Write` | grep-heuristic check of `boundaries.rules` deny edges on the touched file |
 | `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit** |
 
-All three read `.claude/workflow/toolchain.json` and never skip silently: a missing tool
+The two toolchain hooks (`post-edit-gate.sh`, `pre-commit-security.sh`) read
+`.claude/workflow/toolchain.json` and never skip silently: a missing tool
 category produces a loud `workflow gap:` line naming the fix (P7).
 
 **CI note (out of scope, one line):** mirror `pre-commit-security.sh` and the

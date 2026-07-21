@@ -87,7 +87,7 @@ gap_warn() {
 run_on_file() {
   local tmpl="$1" file="$2"
   if [[ "$tmpl" == *"{file}"* ]]; then
-    bash -c "${tmpl//\{file\}/\"$file\"}"
+    bash -c "${tmpl//\{file\}/\"\$1\"}" _ "$file"
   else
     bash -c "$tmpl \"\$1\"" _ "$file"
   fi

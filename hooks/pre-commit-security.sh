@@ -12,11 +12,24 @@ set -u
 . "$(dirname "$0")/lib/common.sh"
 hook_init
 
-CMD="$(json_get .tool_input.command)" || exit 0
-case "$CMD" in
-  *git\ commit*) ;;
-  *) exit 0 ;;
-esac
+CMD="$(json_get .tool_input.command)" || {
+  # No jq/python3: cannot inspect the command. A security gate must not pass
+  # what it can't read — if it looks like a commit, fail closed.
+  case "$HOOK_INPUT" in
+    *commit*)
+      echo "COMMIT BLOCKED: no jq or python3 on PATH to parse the hook input," \
+           "so staged changes could not be scanned for secrets." >&2
+      echo "Install jq or python3, then commit again." >&2
+      exit 2 ;;
+    *) exit 0 ;;
+  esac
+}
+# `git` as a word, then a `commit` subcommand, allowing option tokens between
+# (catches `git -C dir commit`, `git --git-dir=… commit`). Over-matching is
+# safe: an extra scan only blocks if a secret is actually staged.
+if ! printf '%s' "$CMD" | grep -qE '(^|[^[:alnum:]._-])git([[:space:]]+[^[:space:]]+)*[[:space:]]+commit([[:space:]]|$)'; then
+  exit 0
+fi
 
 cd "$ROOT" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0

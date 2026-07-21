@@ -27,6 +27,10 @@ cd "$ROOT"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Minimal JSON string escaper: backslash and double-quote (covers all current
+# inputs; extend to control chars only if a value ever contains them).
+json_escape() { local s=$1; s=${s//\\/\\\\}; s=${s//\"/\\\"}; printf '%s' "$s"; }
+
 # pkg_script <name> — 0 if package.json defines a real script with that name
 pkg_script() {
   [ -f package.json ] || return 1
@@ -189,7 +193,7 @@ DETECTED_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo 'no-commits')"
   echo "  \"detected_from\": \"$DETECTED_FROM\","
   printf '  "stacks": ['
   first=1; for s in ${STACKS[@]+"${STACKS[@]}"}; do
-    [ $first -eq 0 ] && printf ', '; printf '"%s"' "$s"; first=0
+    [ $first -eq 0 ] && printf ', '; printf '"%s"' "$(json_escape "$s")"; first=0
   done
   echo "],"
   echo "  \"commands\": {"
@@ -197,7 +201,7 @@ DETECTED_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo 'no-commits')"
   for pair in "test:$CMD_TEST" "lint:$CMD_LINT" "typecheck:$CMD_TYPECHECK" "audit:$CMD_AUDIT" "secrets:$CMD_SECRETS"; do
     key="${pair%%:*}"; val="${pair#*:}"
     [ -n "$val" ] || continue
-    printf '%s    "%s": "%s"' "$sep" "$key" "$val"; sep=",
+    printf '%s    "%s": "%s"' "$sep" "$key" "$(json_escape "$val")"; sep=",
 "
   done
   echo ""
@@ -207,7 +211,7 @@ DETECTED_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo 'no-commits')"
   echo "  },"
   printf '  "gaps": ['
   first=1; for g in ${GAPS[@]+"${GAPS[@]}"}; do
-    [ $first -eq 0 ] && printf ','; printf '\n    "%s"' "$g"; first=0
+    [ $first -eq 0 ] && printf ','; printf '\n    "%s"' "$(json_escape "$g")"; first=0
   done
   [ $first -eq 0 ] && printf '\n  '
   echo "]"

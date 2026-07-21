@@ -127,7 +127,8 @@ concurrency. Rationale for choosing it over Postgres: unknown.
 ```
 
 Plus: `docs/index/` (generated), `docs/phases/PHASES.md` (empty table), and `CLAUDE.md`
-from the adopted scaffold — layering summary filled in, pointer table verbatim, 54 lines.
+from the adopted scaffold — layering summary filled in, pointer table verbatim, ~55 lines
+(under the 150-line cap).
 
 The operator answers D1 ("migrate keys.js — no reason it's special") and installs
 gitleaks. D1's answer becomes a debt note picked up in the next planning pass.

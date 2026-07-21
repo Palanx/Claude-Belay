@@ -77,7 +77,7 @@ symbols_of() { # symbols_of <file> — markdown bullet list of public-ish symbol
   fi
 }
 
-IMPORT_RE='^[[:space:]]*(import|from|require|include|use|using|#include)[[:space:](]|require\(|import\('
+IMPORT_RE='^[[:space:]]*(import|export|from|require|include|use|using|#include)[[:space:](]|require\(|import\('
 
 # imports_of <module> — all import-ish lines in the module, deduped
 imports_of() {

@@ -39,7 +39,7 @@ done < <(grep -E '^layer[[:space:]]' "$RULES")
 
 layer_prefix() { awk -v n="$1" '$1=="layer" && $2==n {print $3; exit}' "$RULES"; }
 
-IMPORT_RE='^[[:space:]]*(import|from|require|include|use|using|#include)[[:space:](]|require\(|import\('
+IMPORT_RE='^[[:space:]]*(import|export|from|require|include|use|using|#include)[[:space:](]|require\(|import\('
 
 violations=""
 while read -r _ from arrow to; do
