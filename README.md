@@ -147,6 +147,35 @@ Step 4's exit=2 is the whole point of the package: a wrong action was cheaply,
 deterministically caught. If any step's expectation fails, the install is broken — do
 not proceed to real work.
 
+## Lightweight mode (hand-driven projects)
+
+The full phase pipeline assumes the agent implements whole features across sessions. If
+you drive the project by hand and only ask Claude for advice, planning, and small
+changes, skip the pipeline and keep the safety net:
+
+```
+./install.sh /path/to/repo        # same install, no separate mode
+cd /path/to/repo && claude
+> /adopt-project                  # (or /bootstrap-project on a new repo) — builds index, constraints, toolchain
+```
+
+Then:
+
+**Use:** the hooks (they gate a 3-line edit the same as a phase, and the commit guard
+also catches your own manual commits made through Claude), `docs/index/` + `CLAUDE.md`
+(cheap correct context for "what do you think of X" sessions), `docs/constraints.md` and
+ADRs (record the decisions you make by hand so Claude stops proposing against them), and
+`/security-check` whenever.
+
+**Skip:** `/plan-feature → /expand-phase → /implement-phase → /validate-phase`. For
+small asks, plain prompts are enough — the hooks still fire. The pipeline stays
+installed; pick it up the day you hand over a full feature.
+
+**One obligation:** the index only maintains itself when Claude edits. Since most
+changes are yours, run `/refresh-index` (or `scripts/build-index.sh --check` to test
+staleness) after hand-made changes of any substance, or sessions will plan against a
+stale map.
+
 ## The enforcement layer
 
 | Hook | Event (verified against docs) | What it does |
