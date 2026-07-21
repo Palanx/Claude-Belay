@@ -1,5 +1,11 @@
 # Claude Belay
 
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-workflow%20package-D97757?logo=anthropic&logoColor=white)](https://claude.com/claude-code)
+[![Shell](https://img.shields.io/badge/shell-bash-4EAA25?logo=gnubash&logoColor=white)](install.sh)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#installing)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/Palanx/Claude-Belay/pulls)
+[![Stars](https://img.shields.io/github/stars/Palanx/Claude-Belay?style=flat)](https://github.com/Palanx/Claude-Belay/stargazers)
+
 > Belay (climbing): the rope system that catches a fall after inches instead of meters.
 
 An installable workflow package for Claude Code: slash commands, enforcement hooks,
