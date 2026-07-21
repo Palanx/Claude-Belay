@@ -45,6 +45,7 @@ rule requires a superseding ADR, never a silent edit.
 - Commits: {{COMMIT_CONVENTION — as observed in git log, e.g. Conventional Commits}}.
 - Every command that does work ends by writing its outcome to disk (notes, status).
 - Decisions that constrain the future get an ADR in `docs/adr/` before the code lands.
+- If a Belay hook or command misfires (false positive, wrong tool command, unhandled case) or a workflow step causes friction, say so and offer `/belay-feedback` — the only channel back to the workflow package.
 
 ## Pointer table — where everything else lives
 

@@ -30,6 +30,11 @@ cp -f "$PKG"/scripts/build-index.sh "$TARGET/scripts/"
 cp -f "$PKG"/templates/* "$TARGET/docs/templates/"
 chmod +x "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh "$TARGET/scripts/build-index.sh"
 
+# Version stamp: /belay-feedback cites it so feedback entries name the exact
+# package commit whose behavior they observed.
+ver="$(git -C "$PKG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+printf 'belay %s (installed %s)\n' "$ver" "$(date +%F)" >"$TARGET/.claude/workflow/belay-version"
+
 # --- project-owned files (create only if absent) ----------------------------
 if [ ! -f "$TARGET/.claude/workflow/boundaries.rules" ]; then
   # Ships with the example layers commented out: the hook is inert until the
@@ -65,7 +70,8 @@ fail=0
 for f in .claude/hooks/post-edit-gate.sh .claude/hooks/boundary-check.sh \
          .claude/hooks/pre-commit-security.sh .claude/hooks/lib/common.sh \
          .claude/hooks/lib/detect-toolchain.sh scripts/build-index.sh \
-         .claude/commands/plan-feature.md docs/templates/spec.md; do
+         .claude/commands/plan-feature.md .claude/commands/belay-feedback.md \
+         .claude/workflow/belay-version docs/templates/spec.md; do
   [ -e "$TARGET/$f" ] || { echo "  MISSING after install: $f" >&2; fail=1; }
 done
 bash -n "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh "$TARGET/scripts/build-index.sh"

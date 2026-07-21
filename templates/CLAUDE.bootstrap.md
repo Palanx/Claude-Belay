@@ -38,6 +38,7 @@ you how. Changing a boundary rule requires a superseding ADR, never a silent edi
 - Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`), one phase's work per commit where practical.
 - Every command that does work ends by writing its outcome to disk (notes, status). A session's undocumented knowledge is lost knowledge.
 - Decisions that constrain the future get an ADR in `docs/adr/` before the code lands.
+- If a Belay hook or command misfires (false positive, wrong tool command, unhandled case) or a workflow step causes friction, say so and offer `/belay-feedback` — the only channel back to the workflow package.
 
 ## Pointer table — where everything else lives
 

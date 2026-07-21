@@ -17,5 +17,17 @@
       "Bash(gh pr merge:*)",
       "Bash(gh repo delete:*)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/feedback-pending.sh"
+          }
+        ]
+      }
+    ]
   }
 }

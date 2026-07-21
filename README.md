@@ -50,12 +50,13 @@ State layout in an installed project:
 ```
 CLAUDE.md                          # <150 lines, pointer table — the only always-loaded file
 .claude/
-├── commands/*.md                  # the eight slash commands
+├── commands/*.md                  # the nine slash commands
 ├── hooks/                         # post-edit-gate, boundary-check, pre-commit-security (+ lib/)
 ├── settings.json                  # hook wiring (PostToolUse Edit|Write, PreToolUse Bash)
 └── workflow/
     ├── toolchain.json             # detected commands per category + explicit gaps (generated)
     ├── boundaries.rules           # layer + deny lines (executable form of the dependency rule)
+    ├── belay-version              # package commit this install came from (stamped by install.sh)
     └── secret-allowlist           # optional: regexes to ignore in the builtin secret scan
 docs/
 ├── product/requirements.md        # what & why (bootstrap) 
@@ -132,7 +133,7 @@ scripts/build-index.sh                                   # expect: "index writte
 scripts/build-index.sh --check                           # expect: "index fresh (<hash>)"
 
 # 6. Commands are visible
-claude                                                    # then type /  — expect the eight workflow commands listed
+claude                                                    # then type /  — expect the nine workflow commands listed
 ```
 
 Step 4's exit=2 is the whole point of the package: a wrong action was cheaply,
@@ -154,6 +155,27 @@ category produces a loud `workflow gap:` line naming the fix (P7).
 **CI note (out of scope, one line):** mirror `pre-commit-security.sh` and the
 project-wide toolchain commands in CI — hooks only guard actions taken through Claude
 Code; manual commits and pushes need the same checks server-side.
+
+## Feedback loop (consuming project → package)
+
+Hooks and commands are copies; a bug or friction point found while *using* them in a
+project dies with that session unless it travels back here. The return channel:
+
+1. In the consuming project, when a gate misfires or a workflow step grates, run
+   `/belay-feedback` (the shipped `CLAUDE.md` tells Claude to offer it proactively). It
+   appends a structured entry — component, package version, **verbatim** repro data
+   (hook stderr, offending lines, config excerpts) — to
+   `~/.claude-belay/feedback/<project>.md`.
+2. `install.sh` stamps `.claude/workflow/belay-version` into every target, so each entry
+   names the exact package commit it observed.
+3. Opening a Claude session in *this* repo lists all open entries automatically
+   (SessionStart hook → `scripts/feedback-pending.sh`) with pointers to the repro data —
+   the fixing session starts loaded.
+4. Fix here, flip the entry to `status: resolved (<commit>)`, re-run `install.sh` in the
+   consumers.
+
+Single-machine by design (the store is under `$HOME`); if feedback must cross machines,
+file it as an issue on this repo instead.
 
 ## The repo index (`docs/index/`)
 
