@@ -72,6 +72,10 @@ docs/
 scripts/build-index.sh             # index generator (--check for staleness)
 ```
 
+Corporate mode (`--corporate`): the `docs/` and `scripts/` trees above live under
+`.belay/`, the pointer doc is `CLAUDE.local.md` instead of `CLAUDE.md`, hook wiring is
+`.claude/settings.local.json`, and all of it is hidden from git via `.git/info/exclude`.
+
 ## Installing
 
 ### Into a new (empty or nearly-empty) repo
@@ -93,6 +97,54 @@ cd /path/to/repo && claude
 
 Then answer the "Decisions needed" section of `docs/adoption-report.md` — those answers
 become real ADRs — and start with `/plan-feature <first change>`.
+
+### Into a corporate / shared repo (no-touch mode)
+
+```
+./install.sh /path/to/repo --corporate      # add --cursor for Cursor wiring too
+cd /path/to/repo && claude
+> /adopt-project
+```
+
+For repos where you may run agents but may not modify the company's agent docs or
+commit workflow files. Two guarantees, both checked by the installer itself:
+
+- **No tracked file is ever modified.** `CLAUDE.md`, `AGENTS.md` and `.cursor/rules/*`
+  are never touched — `/adopt-project` writes its pointer doc to `CLAUDE.local.md`
+  (auto-loaded by Claude Code alongside `CLAUDE.md`) and, under `--cursor`, to
+  `.cursor/rules/belay.mdc`; the `AGENTS.md` symlink is skipped. A tracked
+  `.claude/settings.json` is never merged (wiring goes to `.claude/settings.local.json`),
+  and a tracked `.cursor/hooks.json` or any tracked file colliding with an installed one
+  is skipped with manual-merge instructions.
+- **Nothing installed appears in `git status`.** Workflow state lives under `.belay/`
+  (the `docs/` + `scripts/` tree relocates there), and every installed path is listed in
+  a marked block in `.git/info/exclude`. The installer fails loudly if `git status`
+  changed at all between start and finish.
+
+Excluded files are invisible to `git ls-files`, so the repo index never picks up
+workflow files either — git containment and index hygiene are the same mechanism.
+
+**Uninstall:** open the `# >>> claude-belay` block in `.git/info/exclude` — it lists
+every installed path. Delete those paths, then the block. The company repo never
+knew.
+
+Re-running `install.sh` without `--corporate` on a corporate install is blocked (it
+would write `docs/` into the repo). `CLAUDE.local.md` is deprecated upstream but still
+auto-loaded; if it ever stops loading, import the `.belay/docs/` state from your
+user-level memory file instead.
+
+Corporate smoke test (run in a scratch clone; complements the general one below):
+
+```bash
+H=$(git hash-object CLAUDE.md)                             # if the repo has one
+/path/to/claude-belay/install.sh . --corporate --cursor
+test -z "$(git status --porcelain)" && echo clean          # expect: clean — THE guarantee
+test "$(git hash-object CLAUDE.md)" = "$H" && echo intact  # expect: intact
+grep -q '.belay/docs' .claude/commands/plan-feature.md && echo relocated   # expect: relocated
+.belay/scripts/build-index.sh                              # expect: "index written: .belay/docs/index (...)"
+test -z "$(git status --porcelain)" && echo still-clean    # expect: still-clean after runtime writes
+/path/to/claude-belay/install.sh .                         # expect: error, "re-run with --corporate"
+```
 
 ### Cursor CLI / IDE
 
@@ -129,6 +181,10 @@ missed), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
 `.claude/commands/*`, `scripts/build-index.sh`, `docs/templates/*`, `docs/index/*`
 (generated). If a hook misbehaves, fix it in the package and re-run `install.sh`, or
 you'll lose the fix at the next upgrade.
+
+Corporate mode: same split, relocated — project-owned becomes `CLAUDE.local.md` and
+everything under `.belay/docs/` except `.belay/docs/templates/` and `.belay/docs/index/`;
+package-owned adds `.belay/scripts/build-index.sh`.
 
 ### Verifying the install (smoke test)
 
@@ -199,6 +255,9 @@ installed; pick it up the day you hand over a full feature.
 changes are yours, run `/refresh-index` (or `scripts/build-index.sh --check` to test
 staleness) after hand-made changes of any substance, or sessions will plan against a
 stale map.
+
+Corporate installs (`--corporate`) compose naturally with this mode — safety net +
+index without the pipeline is the common corporate case.
 
 ## The enforcement layer
 

@@ -57,6 +57,12 @@ elicit requirements interactively (step 2).
 8. **CLAUDE.md.** Copy `docs/templates/CLAUDE.bootstrap.md` to `CLAUDE.md` and fill the
    placeholders (project name, one-line purpose, layering summary). It must stay under
    150 lines (P1) — everything else is reached through its pointer table.
+   **Corporate mode** (`.claude/workflow/corporate` exists): never create or modify
+   `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company. Write
+   the filled template to `CLAUDE.local.md` instead (Claude Code auto-loads it alongside
+   `CLAUDE.md`), complementing any existing agent docs without repeating them. If
+   `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc` (frontmatter
+   `alwaysApply: true`) carrying the same pointer table.
 
 9. **Index.** Run `scripts/build-index.sh` (it will be small; that's fine).
 
@@ -66,7 +72,9 @@ Everything this command produced is already on disk — verify it: list the file
 re-read `docs/phases/PHASES.md` to confirm the table parses (every row has id, goal,
 depends, acceptance, status), and confirm `CLAUDE.md` is under 150 lines
 (`wc -l CLAUDE.md`). Then offer the operator a single commit of the bootstrap state
-(commit message: `chore: bootstrap workflow state`).
+(commit message: `chore: bootstrap workflow state`). Corporate mode: check
+`CLAUDE.local.md` instead, and skip the commit offer — the workflow state is
+deliberately invisible to git.
 
 ## Failure modes
 

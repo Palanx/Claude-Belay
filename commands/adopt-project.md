@@ -68,6 +68,14 @@ After this command the project is in the same state a bootstrapped project would
    placeholders. If a `CLAUDE.md` already exists, merge: keep its project-specific rules
    that survive the P1 test ("true in every session?"), move the rest into
    `docs/constraints.md`, and add the pointer table. Under 150 lines, always.
+   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, or
+   merge `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company.
+   Write the filled template to `CLAUDE.local.md` instead (Claude Code auto-loads it
+   alongside `CLAUDE.md`). Read the existing agent docs first so `CLAUDE.local.md`
+   complements them without repeating them; where they contradict what the code shows,
+   record that under Contradictions in the adoption report — never edit them. If
+   `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc` (frontmatter
+   `alwaysApply: true`) carrying the same pointer table.
 
 ## Mandatory final step (P6)
 
@@ -76,6 +84,8 @@ Verify the written state: `docs/adoption-report.md`, `docs/constraints.md`,
 `.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Print the
 "Decisions needed" section of the adoption report verbatim as your final output — those
 questions are the handoff. Offer one commit: `chore: adopt project into workflow`.
+Corporate mode: verify `CLAUDE.local.md` (< 150 lines) instead of `CLAUDE.md`, and skip
+the commit offer — the workflow state is deliberately invisible to git.
 
 ## Failure modes
 

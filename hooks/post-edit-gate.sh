@@ -23,7 +23,7 @@ esac
 # Second line: engine asset text (Unity YAML, Godot resources) — editor-authored,
 # out of scope by design, and would otherwise gap_warn on every touch.
 case "$REL" in
-  .claude/*|docs/*|*.md|*.txt|*.json|*.yml|*.yaml|*.toml|*.lock|*.csv) exit 0 ;;
+  .claude/*|.belay/*|docs/*|*.md|*.txt|*.json|*.yml|*.yaml|*.toml|*.lock|*.csv) exit 0 ;;
   *.meta|*.unity|*.prefab|*.asset|*.mat|*.anim|*.controller|*.asmdef|*.tscn|*.tres|*.import|*.uproject|*.uplugin) exit 0 ;;
 esac
 
