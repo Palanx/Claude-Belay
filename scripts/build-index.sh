@@ -29,6 +29,28 @@ SRC_EXT='py|js|jsx|ts|tsx|mjs|cjs|go|rs|rb|java|kt|kts|c|h|cc|cpp|hpp|cs|php|swi
 
 # --- staleness check mode ---------------------------------------------------
 if [ "${1:-}" = "--check" ]; then
+  # Corporate collision check: warn if upstream now tracks a path the local
+  # exclude manifest hides — the next pull would die with "untracked working
+  # tree files would be overwritten". Warn-only; staleness governs the exit code.
+  EXC="$(git rev-parse --git-path info/exclude)"
+  if grep -q '^# >>> claude-belay' "$EXC" 2>/dev/null; then
+    REF="HEAD"; git rev-parse -q --verify '@{u}' >/dev/null 2>&1 && REF='@{u}'
+    # Manifest paths are plain (letters, digits, ., /, -): escaping dots is enough.
+    pat="$(sed -n '/^# >>> claude-belay/,/^# <<< claude-belay/p' "$EXC" \
+      | grep '^/' | sed -e 's#^/##' -e 's/\./\\./g' \
+      | awk '{ if ($0 ~ /\/$/) print "^"$0; else print "^"$0"$" }')"
+    hits="$([ -n "$pat" ] && git ls-tree -r --name-only "$REF" 2>/dev/null | grep -E "$pat" || true)"
+    if [ -n "$hits" ]; then
+      {
+        echo "WARNING: upstream ($REF) tracks paths the corporate exclude manifest hides:"
+        printf '%s\n' "$hits" | sed 's/^/  /'
+        echo "The next pull will refuse to overwrite your local untracked copies."
+        echo "Move the local belay state aside (or delete those paths and their lines in"
+        echo ".git/info/exclude) before pulling."
+      } >&2
+    fi
+  fi
+
   OV="$OUTDIR/_overview.md"
   [ -f "$OV" ] || { echo "index STALE: $OV missing — run scripts/build-index.sh"; exit 1; }
   stamp="$(grep -oE "$STAMP_RE" "$OV" | grep -oE '[0-9a-f]+|no-commits' | tail -1 || true)"

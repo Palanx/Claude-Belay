@@ -19,6 +19,26 @@ case "$FILE" in
   *) REL="$FILE" ;;
 esac
 
+# Corporate containment: state lives under .belay/, but an agent can
+# hallucinate the old canonical path (docs/phases/... instead of
+# .belay/docs/...), which every gate below exempts. Catch it at write time.
+# Tracked files at these paths are the company's own docs — those pass.
+if [ -f "$ROOT/.claude/workflow/corporate" ]; then
+  # [x] brackets keep these globs invisible to the corporate-install sed, which
+  # would otherwise rewrite them to .belay/... and invert the check's meaning.
+  case "$REL" in
+    docs/[p]roduct/*|docs/[a]dr/*|docs/[p]hases/*|docs/[i]ndex/*|docs/[s]ecurity/*|docs/[t]emplates/*|docs/[c]onstraints.md|docs/[a]doption-report.md|scripts/[b]uild-index.sh)
+      if ! git -C "$ROOT" ls-files --error-unmatch "$REL" >/dev/null 2>&1; then
+        {
+          echo "WRONG PATH (corporate mode): $REL"
+          echo "Belay state lives under .belay/ in this repo (.belay/docs/..., .belay/scripts/...)."
+          echo "Move the file there and update any reference to the old path."
+        } >&2
+        exit 2
+      fi ;;
+  esac
+fi
+
 # Docs, workflow config, and data files are not source — not gated.
 # Second line: engine asset text (Unity YAML, Godot resources) — editor-authored,
 # out of scope by design, and would otherwise gap_warn on every touch.

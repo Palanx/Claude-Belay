@@ -31,6 +31,14 @@ marked `done` is load-bearing for every phase that depends on it.
 3. **Boundary sweep.** For every source file this phase touched (from the spec plan and
    git status/diff), verify no line violates `.claude/workflow/boundaries.rules` — the
    same check the edit hook does, re-run as a batch in case any edit path bypassed it.
+   **Corporate mode** (`.claude/workflow/corporate` exists): also verify no belay state
+   path appears in `git status --porcelain` — no line matching
+   `^\?\? (\.belay/|CLAUDE\.local\.md|docs/(product|adr|phases|index|security|templates)/|docs/(constraints|adoption-report)\.md|scripts/build-index\.sh)`
+   (run `git status --porcelain -uall | grep -E '<that regex>'`; empty output = clean).
+   A hit at an un-prefixed path means state was written to the old canonical location
+   (move it under `.belay/`); a hit on `.belay/` or `CLAUDE.local.md` means the exclude
+   block broke (re-run `install.sh --corporate`). Either way the validation FAILS until
+   the status is clean of belay paths.
 
 4. **Index freshness.** Run `scripts/build-index.sh --check`; if stale, run
    `scripts/build-index.sh` so the next phase plans against reality.

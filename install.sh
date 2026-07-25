@@ -174,19 +174,28 @@ if [ "$CORPORATE" -eq 1 ]; then
   [ -f "$EXC" ] || : >"$EXC"
   sed -i.belaybak '/^# >>> claude-belay/,/^# <<< claude-belay/d' "$EXC"
   rm -f "$EXC.belaybak"
+  emit() { # a tracked path is company-owned (install skipped it): excluding it
+           # would hide company files from their status, and the uninstall
+           # manifest must never tell anyone to delete a company file.
+    if tracked "${1#/}"; then
+      echo "  NOTE: ${1#/} is tracked by the target repo — omitted from the exclude manifest" >&2
+    else
+      echo "$1"
+    fi
+  }
   {
     echo "# >>> claude-belay corporate mode — uninstall manifest: delete these paths, then this block >>>"
-    echo "/.belay/"
-    echo "/CLAUDE.local.md"
-    echo "/.claude/workflow/"
-    echo "/.claude/settings.local.json"
-    for f in "$PKG"/commands/*.md;  do echo "/.claude/commands/$(basename "$f")"; done
-    for f in "$PKG"/hooks/*.sh;     do echo "/.claude/hooks/$(basename "$f")"; done
-    for f in "$PKG"/hooks/lib/*.sh; do echo "/.claude/hooks/lib/$(basename "$f")"; done
+    emit "/.belay/"
+    emit "/CLAUDE.local.md"
+    emit "/.claude/workflow/"
+    emit "/.claude/settings.local.json"
+    for f in "$PKG"/commands/*.md;  do emit "/.claude/commands/$(basename "$f")"; done
+    for f in "$PKG"/hooks/*.sh;     do emit "/.claude/hooks/$(basename "$f")"; done
+    for f in "$PKG"/hooks/lib/*.sh; do emit "/.claude/hooks/lib/$(basename "$f")"; done
     if [ "$CURSOR" -eq 1 ]; then
-      for f in "$PKG"/commands/*.md; do echo "/.cursor/commands/$(basename "$f")"; done
-      echo "/.cursor/hooks.json"
-      echo "/.cursor/rules/belay.mdc"
+      for f in "$PKG"/commands/*.md; do emit "/.cursor/commands/$(basename "$f")"; done
+      emit "/.cursor/hooks.json"
+      emit "/.cursor/rules/belay.mdc"
     fi
     echo "# <<< claude-belay <<<"
   } >>"$EXC"
@@ -213,9 +222,14 @@ bash -n "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh "$TARGET/$
 if command -v jq >/dev/null 2>&1 && [ -f "$SET" ]; then jq . "$SET" >/dev/null; fi
 if [ "$CORPORATE" -eq 1 ]; then
   grep -q 'claude-belay' "$EXC" || { echo "  MISSING after install: exclude block in $EXC" >&2; fail=1; }
-  if [ "$(git -C "$TARGET" status --porcelain)" != "$STATUS_BEFORE" ]; then
+  # No-touch guarantee: nothing NEW may appear in git status. Lines may
+  # disappear — a pre-existing untracked file (e.g. settings.local.json) is now
+  # hidden by the exclude block, which is containment working, not a change.
+  NEW_ENTRIES="$(comm -13 <(printf '%s\n' "$STATUS_BEFORE" | sort) \
+                          <(git -C "$TARGET" status --porcelain | sort))"
+  if [ -n "$NEW_ENTRIES" ]; then
     echo "  FAIL: install changed git status — corporate no-touch guarantee violated:" >&2
-    git -C "$TARGET" status --porcelain >&2
+    printf '%s\n' "$NEW_ENTRIES" >&2
     fail=1
   fi
 fi

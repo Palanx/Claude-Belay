@@ -133,18 +133,18 @@ would write `docs/` into the repo). `CLAUDE.local.md` is deprecated upstream but
 auto-loaded; if it ever stops loading, import the `.belay/docs/` state from your
 user-level memory file instead.
 
-Corporate smoke test (run in a scratch clone; complements the general one below):
+**Verify the pointer docs actually load — once per environment.** After the first
+`/adopt-project`, run `/context` in Claude Code and confirm `CLAUDE.local.md` is listed
+among the loaded context; under `--cursor`, confirm `.cursor/rules/belay.mdc` shows as
+an active rule in Cursor's settings. If either stops loading (a client update dropping
+`CLAUDE.local.md` support is the realistic risk), everything keeps *running* but the
+agent silently loses the pointer to the workflow state — nothing else will tell you.
 
-```bash
-H=$(git hash-object CLAUDE.md)                             # if the repo has one
-/path/to/claude-belay/install.sh . --corporate --cursor
-test -z "$(git status --porcelain)" && echo clean          # expect: clean — THE guarantee
-test "$(git hash-object CLAUDE.md)" = "$H" && echo intact  # expect: intact
-grep -q '.belay/docs' .claude/commands/plan-feature.md && echo relocated   # expect: relocated
-.belay/scripts/build-index.sh                              # expect: "index written: .belay/docs/index (...)"
-test -z "$(git status --porcelain)" && echo still-clean    # expect: still-clean after runtime writes
-/path/to/claude-belay/install.sh .                         # expect: error, "re-run with --corporate"
-```
+Corporate smoke test: run `tests/corporate-smoke.sh` from the package repo. It builds a
+hostile scratch repo (tracked `CLAUDE.md`, tracked `.claude/settings.json` and `docs/`,
+a tracked homonymous command, a pre-existing `settings.local.json`), installs with
+`--corporate --cursor`, and asserts the no-touch guarantees, path rewriting,
+idempotence, mode guard, tracked-file skips, plus a normal-mode regression.
 
 ### Cursor CLI / IDE
 
@@ -265,7 +265,7 @@ index without the pipeline is the common corporate case.
 |---|---|---|
 | `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | format + lint + file-scoped typecheck on the touched file; failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
 | `boundary-check.sh` | `PostToolUse`, matcher `Edit\|Write` | grep-heuristic check of `boundaries.rules` deny edges on the touched file |
-| `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit** |
+| `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit**. Corporate mode: also blocks `git clean -x/-X` (would erase the git-excluded belay state) and blocks commits while any belay state path shows in `git status` |
 
 The two toolchain hooks (`post-edit-gate.sh`, `pre-commit-security.sh`) read
 `.claude/workflow/toolchain.json` and never skip silently: a missing tool
