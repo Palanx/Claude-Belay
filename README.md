@@ -227,6 +227,31 @@ Step 4's exit=2 is the whole point of the package: a wrong action was cheaply,
 deterministically caught. If any step's expectation fails, the install is broken — do
 not proceed to real work.
 
+## The commands
+
+| Command | Purpose | Writes |
+|---|---|---|
+| `/bootstrap-project [requirements]` | Greenfield entry point — requirements into project state | `requirements.md`, `constraints.md`, ADR-0001+, `PHASES.md`, `boundaries.rules`, `toolchain.json`, `CLAUDE.md`, `docs/index/` |
+| `/adopt-project` | Existing-codebase entry point — infer stack, layering, conventions and decisions from the code | same as bootstrap, plus `adoption-report.md` (contradictions + decisions needed); ADRs are marked `reconstructed` |
+| `/plan-feature <description>` | Feature request → rows in the phase index. Stops if the feature contradicts a recorded ADR | `docs/phases/PHASES.md` (feature section + rows, status `pending`) |
+| `/expand-phase <phase-id>` | One index row → a full spec, written *just in time*, absorbing what the dependency phases revealed | `docs/phases/<id>/spec.md`; status → `expanded` |
+| `/implement-phase <phase-id>` | Do exactly that phase against its spec, inside the hooks | the source files in the spec's Plan, `docs/phases/<id>/notes.md`; status → `in-progress` |
+| `/validate-phase <phase-id>` | Run the spec's acceptance criteria, the project-wide gates, and the closure test | validation record appended to `notes.md`; status → `done` **only** on a clean pass |
+| `/refresh-index` | Rebuild the repo index, re-detect the toolchain, report doc/code drift | `docs/index/`, `toolchain.json` |
+| `/security-check [path]` | Advisory security review — the reasoning companion to the enforced commit gate | `docs/security/review-<date>.md` |
+| `/belay-feedback <what misbehaved>` | Send a gate/command bug back to this package with verbatim repro data | `~/.claude-belay/feedback/<project>.md` |
+
+The loop: `/plan-feature` **once per feature**, then `/expand-phase → /implement-phase →
+/validate-phase` **per phase** until every row is `done`. A failed validation is not an
+exception — it hands the failing command's output back to `/implement-phase`, which fixes
+and returns. Each command's own file (`.claude/commands/*.md`) states its preconditions,
+what it reads, and its failure modes.
+
+**Read this next:** [`docs/worked-example.md`](docs/worked-example.md) — one non-trivial
+feature end to end on a real Node/SQLite codebase: adoption, an ADR conflict surfaced
+during planning, the phase index, a spec, a hook failure and its recovery, and validation.
+Every artifact is shown as it lands on disk.
+
 ## Lightweight mode (hand-driven projects)
 
 The full phase pipeline assumes the agent implements whole features across sessions. If
