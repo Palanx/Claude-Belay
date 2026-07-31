@@ -66,7 +66,7 @@ After this command the project is in the same state a bootstrapped project would
 
 7. **Gap report.** Write `docs/adoption-report.md` with exactly three sections:
    - **Contradictions** — where the code disagrees with itself (two error-handling styles, duplicated modules, layering violations). Facts with file references, no fixes.
-   - **Decisions needed** — one line per human decision, each phrased as a question with the options observed in the code.
+   - **Decisions needed** — one line per human decision, each phrased as a question with the options observed in the code. Each answer, once given, lands as a *new* ADR in `docs/adr/` from `docs/templates/adr.md`, next sequential number, status `accepted`; where it settles something a step 5 ADR only reconstructed, that ADR gets status `superseded` with a pointer to the new one, never an edit in place. That is how a guess about the code becomes a decision.
    - **Toolchain gaps** — from step 1, with proposed fixes.
 
 8. **Constraints + phase table.** Write `docs/constraints.md` (layering from step 2,

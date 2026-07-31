@@ -27,7 +27,13 @@ elicit requirements interactively (step 2).
    being built, for whom, the 3–5 capabilities that matter, explicit non-goals, and any
    hard constraints (compliance, latency, platform). Write
    `docs/product/requirements.md` using `docs/templates/requirements.md` as the shape.
-   Non-goals are mandatory — an empty non-goals section means the interview isn't done.
+   Non-goals are mandatory — an empty non-goals section means the interview isn't done, and
+   so does a vague one: the test is closure, not presence. Keep asking until each answer is
+   concrete enough to build on — "nothing out of scope", or a capability nobody can state an
+   acceptance criterion for, is an unanswered question wearing a section heading. Stop when
+   a further answer would change neither an ADR (step 3) nor a phase boundary (step 7). If
+   nobody answers (headless `claude -p`), take the failure mode below — never invent
+   requirements.
 
 3. **Architecture decisions.** Propose to the operator: stack, architecture style, and the
    layering (names + directory prefixes + allowed dependency directions). Keep it to the

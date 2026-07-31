@@ -25,16 +25,28 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    name files that don't exist.
 
 2. **Understand the request.** Restate the feature in two sentences: what changes for the
-   user, and what explicitly does not (scope edge). If the request is ambiguous on
-   something that changes the phase structure, ask the operator now, not during
-   implementation.
+   user, and what explicitly does not (scope edge). If `$ARGUMENTS` is thin or the
+   restatement has a gap, interview the operator — one round of questions, then re-state,
+   and again — until two things are closed: the **scope edge** (the nearest thing a reader
+   would assume is included and isn't) and the **non-goals** (what this feature will not do,
+   even later). Both are mandatory: step 5 cuts phase boundaries on the scope edge and step
+   6 writes acceptance criteria against the non-goals, so an open answer there is a guess
+   propagated into every spec below it. Stop when a further answer would not move a phase
+   boundary — this is the index, not the spec (P4); detail that only sharpens implementation
+   belongs to `/expand-phase`. Persist none of it: the outcome lives in the restatement and
+   in the rows, and a second document describing the same feature is a second source of
+   truth (P6). If nobody answers (headless `claude -p`), take the "too vague" failure mode
+   below — never invent the answers.
 
 3. **Conflict detection.** Read every ADR whose topic the feature touches, plus the
    constraints. If the feature contradicts a recorded decision (e.g. it wants an event
    queue and ADR-0003 says "no async infrastructure"), STOP and surface the conflict:
    quote the ADR, state the contradiction, and give the operator the two options —
-   change the feature, or write a superseding ADR first. Never plan around a recorded
-   decision silently; that is how ADRs die.
+   change the feature, or write a superseding ADR first. That ADR is a *new* file in
+   `docs/adr/` from `docs/templates/adr.md`, next sequential number, status `accepted`; the
+   ADR it replaces gets status `superseded` with a pointer to it, never an edit in place —
+   the old rationale is the record of why the project used to think otherwise. Never plan
+   around a recorded decision silently; that is how ADRs die.
 
 4. **Locate the change.** From the index, list the modules the feature touches and the
    dependency edges between them. This tells you the phase *order*: a phase can only
