@@ -186,6 +186,39 @@ Corporate mode: same split, relocated — project-owned becomes `CLAUDE.local.md
 everything under `.belay/docs/` except `.belay/docs/templates/` and `.belay/docs/index/`;
 package-owned adds `.belay/scripts/build-index.sh`.
 
+### Methodology (skills and house rules)
+
+This package has no opinion on TDD, SOLID, or any other method — it supplies gates and
+state, you supply the method. If you carry your own engineering or architecture rules as
+Claude Code skills, those live in *your* home directory, so a project that depends on them
+is depending on a channel the repo can't see. `/expand-phase` would write a spec whose Plan
+assumes them, and the next session — a teammate, another machine, Cursor — would implement
+against that spec without them. That breaks the closure test (P5) and P6 in the same move.
+
+So the entry commands harvest them once: `/bootstrap-project` and `/adopt-project` read the
+methodology skills active in the session, draft the rules that apply to *this* project, show
+you the draft, and write what you confirm into `docs/constraints.md`, ADRs, and
+`.claude/workflow/boundaries.rules`. Always as self-contained prose, never as a skill name —
+the repo keeps the rule, not the dependency. Greenfield takes them as the convention source
+(there's no code to observe yet); an adopted project lets the code win, and a skill rule that
+contradicts the observed convention becomes a question in `docs/adoption-report.md` instead.
+
+**When you add a skill later**, nothing fires automatically and nothing should — it's a rare
+event, not a workflow step. Say it in session once ("I added skill X; what in it applies
+here?"), then:
+
+1. Every rule that changes how this project is built gets an **ADR** (`docs/adr/`, status
+   `accepted`). If it replaces an earlier decision, the old ADR is marked superseded — never
+   edited.
+2. Its standing form goes to `docs/constraints.md`, in the section it belongs to.
+3. If it's a layer edge, it also goes to `.claude/workflow/boundaries.rules` — which already
+   requires that superseding ADR, per the shipped `CLAUDE.md`.
+4. If it can be a command with an exit code, it becomes an acceptance criterion in the next
+   `spec.md`, or an invariant naming its `enforced by`. A rule that is neither a deny edge
+   nor a checkable command is a preference, not a constraint — write it down as such.
+5. Existing code that violates the new rule does **not** get fixed in passing: that's a phase
+   via `/plan-feature`, or a recorded contradiction. Same rule adoption already follows.
+
 ### Verifying the install (smoke test)
 
 Run from the target repo root — every step states its expected outcome:

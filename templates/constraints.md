@@ -6,7 +6,11 @@
      per-session tax):
        - One-time decision with rationale  -> docs/adr/
        - True in every session AND needed before reading anything else -> CLAUDE.md
-       - Standing rule a session consults when relevant -> HERE. -->
+       - Standing rule a session consults when relevant -> HERE.
+     Rules coming from a methodology/architecture skill are recorded here in
+     self-contained form: the project has the prose, not the skill. Never
+     "follow <skill-name>" — a session without that skill must still be able
+     to comply. -->
 
 ## Layering
 

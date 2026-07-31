@@ -43,6 +43,15 @@ After this command the project is in the same state a bootstrapped project would
    configuration is read. Each becomes a rule in `docs/constraints.md` under
    "Observed conventions", each with one real file as its example.
 
+   Methodology or architecture skills active in this session are a second source, subordinate
+   to the code. Where such a skill states a rule the code **already follows**, transcribe it
+   like any other convention — self-contained prose, never the skill's name, with a real file
+   as its example (the skill is not installed in this repo, and the next session may not have
+   it). Where it **contradicts** the observed convention, the code wins: that rule does not
+   enter constraints.md, it becomes a line in step 7's "Decisions needed", phrased as a
+   question. Adopting it later is an ADR; changing the existing code to match is a phase via
+   `/plan-feature`, never a fix in passing.
+
 5. **Reconstructed ADRs.** For each significant decision visible in the code (framework
    choice, database, layering, sync/async style, auth approach), write an ADR from the
    template with status **`reconstructed`** and this header line:

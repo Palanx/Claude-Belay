@@ -31,12 +31,23 @@ elicit requirements interactively (step 2).
 
 3. **Architecture decisions.** Propose to the operator: stack, architecture style, and the
    layering (names + directory prefixes + allowed dependency directions). Keep it to the
-   decisions that are expensive to reverse. For each accepted decision write an ADR in
-   `docs/adr/` from `docs/templates/adr.md`, numbered from `0001`, status `accepted`.
+   decisions that are expensive to reverse. Methodology or architecture skills active in
+   this session are a valid input to the proposal — greenfield has no code to observe, so
+   they are the only convention source there is. A rule adopted from one is an ADR like any
+   other, with its rationale written out; "the skill says so" is not a rationale. For each
+   accepted decision write an ADR in `docs/adr/` from `docs/templates/adr.md`, numbered from
+   `0001`, status `accepted`.
 
 4. **Constraints.** Write `docs/constraints.md` from the template: the layering table, the
    dependency rule, and the invariants that hold for every feature. Constraints are
    *standing rules*; one-time decisions belong in the ADRs (see the template header).
+   Transcribe the standing rules from any active methodology skills into the section that
+   fits (Invariants / Error handling / Testing / Observed conventions), and show the
+   operator the drafted lines for confirmation before writing. Write them **self-contained,
+   never by skill name** — the skill lives in one operator's home directory; the next
+   session to read this file may not have it (P5/P6). A rule expressible as a command with
+   an exit code goes in as an invariant with that command as its `enforced by`; a rule about
+   layer edges goes to `boundaries.rules` in step 5.
 
 5. **Boundary rules.** Translate the layering into `.claude/workflow/boundaries.rules`
    (`layer` and `deny` lines — see `docs/templates/boundaries.rules`). This is the
