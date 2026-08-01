@@ -264,12 +264,12 @@ not proceed to real work.
 
 | Command | Purpose | Writes |
 |---|---|---|
-| `/bootstrap-project [requirements]` | Greenfield entry point — requirements into project state | `requirements.md`, `constraints.md`, ADR-0001+, `PHASES.md`, `boundaries.rules`, `toolchain.json`, `CLAUDE.md`, `docs/index/` |
+| `/bootstrap-project [requirements]` | Greenfield entry point — interviews until the requirements actually close, then turns them into project state | `requirements.md`, `constraints.md`, ADR-0001+, `PHASES.md`, `boundaries.rules`, `toolchain.json`, `CLAUDE.md`, `docs/index/` |
 | `/adopt-project` | Existing-codebase entry point — infer stack, layering, conventions and decisions from the code | same as bootstrap, plus `adoption-report.md` (contradictions + decisions needed); ADRs are marked `reconstructed` |
-| `/plan-feature <description>` | Feature request → rows in the phase index. Stops if the feature contradicts a recorded ADR | `docs/phases/PHASES.md` (feature section + rows, status `pending`) |
+| `/plan-feature <description>` | Feature request → rows in the phase index. Converges on the scope edge and non-goals first, and records them. Stops if the feature contradicts a recorded ADR | `docs/phases/PHASES.md` (feature section: blurb + rows, status `pending`) |
 | `/expand-phase <phase-id>` | One index row → a full spec, written *just in time*, absorbing what the dependency phases revealed | `docs/phases/<id>/spec.md`; status → `expanded` |
 | `/implement-phase <phase-id>` | Do exactly that phase against its spec, inside the hooks | the source files in the spec's Plan, `docs/phases/<id>/notes.md`; status → `in-progress` |
-| `/validate-phase <phase-id>` | Run the spec's acceptance criteria, the project-wide gates, and the closure test | validation record appended to `notes.md`; status → `done` **only** on a clean pass |
+| `/validate-phase <phase-id>` | Run the spec's acceptance criteria, the project-wide gates, an independent review by a subagent that sees only the spec and the diff, and the closure test | validation record appended to `notes.md`; status → `done` **only** on a clean pass |
 | `/refresh-index` | Rebuild the repo index, re-detect the toolchain, report doc/code drift | `docs/index/`, `toolchain.json` |
 | `/security-check [path]` | Advisory security review — the reasoning companion to the enforced commit gate | `docs/security/review-<date>.md` |
 | `/belay-feedback <what misbehaved>` | Send a gate/command bug back to this package with verbatim repro data | `~/.claude-belay/feedback/<project>.md` |
@@ -279,6 +279,24 @@ The loop: `/plan-feature` **once per feature**, then `/expand-phase → /impleme
 exception — it hands the failing command's output back to `/implement-phase`, which fixes
 and returns. Each command's own file (`.claude/commands/*.md`) states its preconditions,
 what it reads, and its failure modes.
+
+Three of the behaviours above are borrowed from the [Superpowers](https://github.com/obra/superpowers)
+plugin, adapted to run inside gates rather than as advice:
+
+- **Converge before structuring.** `/plan-feature` and `/bootstrap-project` interview until
+  the scope edge and non-goals are actually closed, not merely answered. The exit condition
+  is closure — "nothing out of scope", or a capability nobody can state an acceptance
+  criterion for, is an unanswered question wearing a section heading.
+- **The answers have to land.** `/plan-feature` writes the converged scope into the feature
+  section's blurb, which is what `/expand-phase` reads to fill a spec's "Out of scope". A
+  conclusion that stays in the session is a conclusion the next session re-derives or gets
+  wrong (P6).
+- **Review by an agent that did not do the work.** `/validate-phase` dispatches one subagent
+  with the spec and the diff and nothing else — deliberately starved, because a reviewer who
+  knows what you meant cannot see that the spec never said it. It returns two verdicts:
+  *contradicts* (code bug, back to `/implement-phase`) and *undecidable* (spec bug, the
+  closure test fails). Taste is not a verdict; it goes to notes, never blocks, so the gate
+  stays deterministic (P3).
 
 **Read this next:** [`docs/worked-example.md`](docs/worked-example.md) — one non-trivial
 feature end to end on a real Node/SQLite codebase: adoption, an ADR conflict surfaced
@@ -374,3 +392,14 @@ that would cost regeneration speed and diff noise without changing any decision.
 - Not CI/CD — hooks are local gates (see the CI note above).
 - Not tied to any language, framework, or cloud.
 - Not project management — `PHASES.md` tracks execution state, never people or dates.
+
+**Deliberately not built: a command that turns a decision into an ADR.** Two places hand the
+operator a question and then stop — `/adopt-project`'s "Decisions needed" and `/plan-feature`'s
+ADR conflict. Both now name where the answer lands (a new ADR, next number, status `accepted`,
+superseding rather than editing), and the adoption report carries that routing in the file
+itself so the session that answers reads it. Nothing automates the write. That is on purpose:
+it happens a handful of times per project, the `adr.md` template already exists, and the
+shipped `CLAUDE.md` already says decisions that constrain the future get an ADR — so telling
+the agent works. A `/decide` command would be an abstraction with two call sites and no gate
+behind it. If the practice proves otherwise, the evidence will be answered questions sitting
+in `adoption-report.md` with no matching ADR; that is the signal to build it, not before.
