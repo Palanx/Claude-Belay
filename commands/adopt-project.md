@@ -50,7 +50,17 @@ After this command the project is in the same state a bootstrapped project would
    it). Where it **contradicts** the observed convention, the code wins: that rule does not
    enter constraints.md, it becomes a line in step 7's "Decisions needed", phrased as a
    question. Adopting it later is an ADR; changing the existing code to match is a phase via
-   `/plan-feature`, never a fix in passing.
+   `/plan-feature`, never a fix in passing. Show the operator the drafted lines for
+   confirmation before writing them — a rule nobody ratified would bind every future session
+   to one person's preference.
+
+   **When the harvest cannot happen, say so.** If no methodology skills are active in this
+   session (a teammate's machine, Cursor via `.cursor/commands/`, headless `claude -p`), or
+   if there is no operator to confirm, do not leave the absence invisible — this command does
+   not run twice. Write one line at the top of `docs/constraints.md` recording that no
+   house rules were harvested, and what closes the gap later: state the rule here in
+   self-contained prose, and add an ADR for any rule that constrains future work. Never
+   "follow skill X" — the next reader may not have it (P7: a gap is stated, never silent).
 
 5. **Reconstructed ADRs.** For each significant decision visible in the code (framework
    choice, database, layering, sync/async style, auth approach), write an ADR from the
@@ -66,7 +76,7 @@ After this command the project is in the same state a bootstrapped project would
 
 7. **Gap report.** Write `docs/adoption-report.md` with exactly three sections:
    - **Contradictions** — where the code disagrees with itself (two error-handling styles, duplicated modules, layering violations). Facts with file references, no fixes.
-   - **Decisions needed** — one line per human decision, each phrased as a question with the options observed in the code. Each answer, once given, lands as a *new* ADR in `docs/adr/` from `docs/templates/adr.md`, next sequential number, status `accepted`; where it settles something a step 5 ADR only reconstructed, that ADR gets status `superseded` with a pointer to the new one, never an edit in place. That is how a guess about the code becomes a decision.
+   - **Decisions needed** — one line per human decision, each phrased as a question with the options observed in the code. **Open this section with the routing line, written into the file** (not just followed by you): an answer typed here changes nothing until it becomes a *new* ADR in `docs/adr/` from `docs/templates/adr.md`, next sequential number, status `accepted`; where it settles something a step 5 ADR only reconstructed, that ADR gets status `superseded` with a pointer to the new one, never an edit in place. The session that answers these questions arrives days later and reads `CLAUDE.md` plus this file — if the routing lives only in your head, the answer dies on disk while the reconstructed ADR keeps binding.
    - **Toolchain gaps** — from step 1, with proposed fixes.
 
 8. **Constraints + phase table.** Write `docs/constraints.md` (layering from step 2,

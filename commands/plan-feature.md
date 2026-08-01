@@ -29,14 +29,15 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    restatement has a gap, interview the operator — one round of questions, then re-state,
    and again — until two things are closed: the **scope edge** (the nearest thing a reader
    would assume is included and isn't) and the **non-goals** (what this feature will not do,
-   even later). Both are mandatory: step 5 cuts phase boundaries on the scope edge and step
-   6 writes acceptance criteria against the non-goals, so an open answer there is a guess
-   propagated into every spec below it. Stop when a further answer would not move a phase
-   boundary — this is the index, not the spec (P4); detail that only sharpens implementation
-   belongs to `/expand-phase`. Persist none of it: the outcome lives in the restatement and
-   in the rows, and a second document describing the same feature is a second source of
-   truth (P6). If nobody answers (headless `claude -p`), take the "too vague" failure mode
-   below — never invent the answers.
+   even later). Both are mandatory because both are load-bearing downstream: step 6 writes
+   them into the feature section's opening blurb, and `/expand-phase` reads that blurb to
+   fill each spec's "Out of scope" section — an answer left open here becomes a guess an
+   eager implementer acts on three phases later. Stop when a further answer would not move a
+   phase boundary — this is the index, not the spec (P4); detail that only sharpens
+   implementation belongs to `/expand-phase`. Do not open a second document for any of it:
+   the blurb and the rows both live in `docs/phases/PHASES.md`, and a separate file
+   describing the same feature is a second source of truth (P6). If nobody answers (headless
+   `claude -p`), take the "too vague" failure mode below — never invent the answers.
 
 3. **Conflict detection.** Read every ADR whose topic the feature touches, plus the
    constraints. If the feature contradicts a recorded decision (e.g. it wants an event
@@ -59,17 +60,25 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    is wrong — either merge them or move the shared knowledge into the spec at expansion
    time via a pointer.
 
-6. **Write the index rows.** Append to `docs/phases/PHASES.md` under a feature heading:
-   next sequential ids (`NN-slug`), one-line goal, `depends` column naming phase ids
-   (`-` for none), a coarse acceptance criterion (one sentence; it becomes executable at
-   expansion), status `pending`. Dependencies are edges, not an ordering — two phases
-   with no edge between them are explicitly parallelizable.
+6. **Write the feature section.** Append to `docs/phases/PHASES.md` under a feature heading,
+   in the shape of `docs/templates/PHASES.md`:
+   - **First the blurb**, above the table: the two sentences step 2 converged on — what
+     changes for the user, and the scope edge plus non-goals. This is the only place that
+     survives the session, and it is what a later `/expand-phase` reads to know what the
+     feature deliberately excludes. Two sentences, not a section.
+   - **Then the rows:** next sequential ids (`NN-slug`), one-line goal, `depends` column
+     naming phase ids (`-` for none), a coarse acceptance criterion (one sentence; it
+     becomes executable at expansion), status `pending`. Dependencies are edges, not an
+     ordering — two phases with no edge between them are explicitly parallelizable.
 
 ## Mandatory final step (P6)
 
-Re-read the appended PHASES.md section and verify: every row parses, every `depends`
-reference names an existing phase id, no dependency cycles (walk the edges). Print the new
-rows as your output, plus any conflict you surfaced in step 3 and how it was resolved.
+Re-read the appended PHASES.md section and verify: the blurb is there and names both the
+scope edge and the non-goals (a blurb that only restates the goal did not survive the
+interview — write it properly now, or step 2 wasn't finished); every row parses; every
+`depends` reference names an existing phase id; no dependency cycles (walk the edges).
+Print the blurb and the new rows as your output, plus any conflict you surfaced in step 3
+and how it was resolved.
 
 ## Failure modes
 

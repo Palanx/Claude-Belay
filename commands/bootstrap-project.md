@@ -55,6 +55,15 @@ elicit requirements interactively (step 2).
    an exit code goes in as an invariant with that command as its `enforced by`; a rule about
    layer edges goes to `boundaries.rules` in step 5.
 
+   **When the harvest cannot happen, say so.** If no methodology skills are active in this
+   session (a teammate's machine, Cursor via `.cursor/commands/`, headless `claude -p`), or
+   if there is no operator to confirm the draft, transcribe nothing unconfirmed and do not
+   stall waiting — this command does not run twice. Write one line at the top of
+   `docs/constraints.md` recording that no house rules were harvested, and what closes the
+   gap later: state the rule here in self-contained prose, and add an ADR for any rule that
+   constrains future work. Never "follow skill X" — the next reader may not have it (P7: a
+   gap is stated, never silent).
+
 5. **Boundary rules.** Translate the layering into `.claude/workflow/boundaries.rules`
    (`layer` and `deny` lines — see `docs/templates/boundaries.rules`). This is the
    executable form of the dependency rule (P2): the prose in constraints.md explains it,
