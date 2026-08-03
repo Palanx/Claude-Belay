@@ -27,7 +27,7 @@ After this command the project is in the same state a bootstrapped project would
 
 ## Resume
 
-<!-- ponytail: the resume path is verified by inspection only — no real
+<!-- belay-debt: the resume path is verified by inspection only — no real
      interrupted run on a large repo yet. Test it by adopting a big codebase,
      interrupting during step 4, and re-running in a fresh session: the log's
      surveyed/pending line and docs/constraints.md must together be enough to

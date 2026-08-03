@@ -45,7 +45,7 @@ truthful written record. The session that runs this command should need nothing 
 Write `docs/phases/$1/notes.md` from `docs/templates/notes.md`:
 - **Outcome** — what exists now that didn't before (files, behaviors).
 - **Deviations** — every one, or explicitly `None`.
-- **Debt** — shortcuts taken and their upgrade path (include any `ponytail:`-style deliberate ceilings).
+- **Debt** — shortcuts taken and their upgrade path. A deliberate ceiling left in the source is marked there with a `belay-debt:` comment naming the limit and what triggers the upgrade (`# belay-debt: global lock, per-account locks if throughput matters`); list those here too, so the ledger is one `grep -rn 'belay-debt:'` away.
 - **For later phases** — anything discovered that changes what a future phase should know. `/expand-phase` reads this section first; it is the channel through which reality reaches the plan.
 
 Update PHASES.md status: stays `in-progress` (validation flips it to `done`), or

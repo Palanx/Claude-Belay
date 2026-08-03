@@ -137,7 +137,7 @@ for m in $MODULES; do
     done <<<"$mfiles"
   } >"$page"
 
-  # ponytail: O(modules²) substring scan for edges; fine below ~100 modules,
+  # belay-debt: O(modules²) substring scan for edges; fine below ~100 modules,
   # switch to a real import resolver if it ever isn't.
   mimports="$(imports_of "$m")"
   deps=""

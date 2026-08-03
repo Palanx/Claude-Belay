@@ -7,7 +7,7 @@
 #   layer <name> <dir-prefix>/     (e.g.  layer domain src/domain/)
 #   deny <from-layer> -> <to-layer>
 #
-# ponytail: grep heuristic, not AST resolution. It matches import/require/use/
+# belay-debt: grep heuristic, not AST resolution. It matches import/require/use/
 # include lines that mention the denied layer's directory name or full prefix.
 # Catches the realistic violations (direct path imports); aliased or dynamic
 # imports can slip through — mirror the rule in CI with a real resolver if that
