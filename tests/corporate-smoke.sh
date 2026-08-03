@@ -193,6 +193,54 @@ check "no duplicate wiring after re-install" \
 check "dummy wiring removed once upstream drops it" \
   bash -c '! grep -q dummy-gate.sh "$1/.claude/settings.json"' _ "$B"
 
+# ====================== agent-doc canonicalization ===========================
+# CLAUDE.md is the real file, AGENTS.md is a symlink to it or absent. The merge
+# itself belongs to the entry command (an LLM), so only the installer's half is
+# testable here: it must never clobber an existing agent doc, and must refuse
+# the reversed symlink before writing anything.
+echo "== agent docs (CLAUDE.md / AGENTS.md) =="
+
+C="$TMP/agents-only"                       # only AGENTS.md, a real file
+mkdir -p "$C"
+printf '# old rules\n- use tabs\n' >"$C/AGENTS.md"
+printf 'print("hi")\n' >"$C/main.py"
+gitq "$C" init -q && gitq "$C" add -A && gitq "$C" commit -qm init
+"$PKG/install.sh" "$C" --cursor >"$TMP/install7.log" 2>&1 \
+  && ok "install with a real AGENTS.md exits 0" || bad "install with a real AGENTS.md exits 0"
+check "existing AGENTS.md is left a real file (not symlinked over)" \
+  bash -c 'test -f "$1/AGENTS.md" && test ! -L "$1/AGENTS.md"' _ "$C"
+check "existing AGENTS.md content untouched by the installer" \
+  grep -q 'use tabs' "$C/AGENTS.md"
+check "installer announces the pending AGENTS.md merge" \
+  grep -q 'AGENTS.md is a real file' "$TMP/install7.log"
+check "no CLAUDE.md invented by the installer" test ! -e "$C/CLAUDE.md"
+
+D="$TMP/reversed"                          # CLAUDE.md -> AGENTS.md: must refuse
+mkdir -p "$D"
+printf '# company rules\n' >"$D/AGENTS.md"
+ln -s AGENTS.md "$D/CLAUDE.md"
+printf 'print("hi")\n' >"$D/main.py"
+gitq "$D" init -q && gitq "$D" add -A && gitq "$D" commit -qm init
+"$PKG/install.sh" "$D" >"$TMP/install8.log" 2>&1 \
+  && bad "reversed CLAUDE.md symlink is refused" || ok "reversed CLAUDE.md symlink is refused"
+check "refusal explains the clobber risk" grep -q 'write' "$TMP/install8.log"
+check "refused install wrote nothing" test ! -e "$D/.claude"
+check "refused install left the tree clean" test -z "$(gitq "$D" status --porcelain)"
+
+E="$TMP/corp-agents"                       # corporate: both docs are read-only
+mkdir -p "$E"
+printf '# company CLAUDE\n' >"$E/CLAUDE.md"
+printf '# company AGENTS\n' >"$E/AGENTS.md"
+printf 'print("hi")\n' >"$E/main.py"
+gitq "$E" init -q && gitq "$E" add -A && gitq "$E" commit -qm init
+"$PKG/install.sh" "$E" --corporate --cursor >"$TMP/install9.log" 2>&1 \
+  && ok "corporate install over both agent docs exits 0" || bad "corporate install over both agent docs exits 0"
+check "corporate: AGENTS.md still a real file, unchanged" \
+  bash -c 'test ! -L "$1/AGENTS.md" && grep -q "company AGENTS" "$1/AGENTS.md"' _ "$E"
+check "corporate: CLAUDE.md unchanged" grep -q 'company CLAUDE' "$E/CLAUDE.md"
+check "corporate: no .pre-belay backups written" \
+  bash -c '! ls "$1"/.claude/workflow/*.pre-belay >/dev/null 2>&1' _ "$E"
+
 # ============================ install registry ===============================
 echo "== install registry / stale report =="
 REG="$HOME/.claude-belay/installs"

@@ -67,7 +67,7 @@ after every step, so stopping cleanly and telling the operator to re-run
    - [ ] 6 boundary rules
    - [ ] 7 decisions needed
    - [ ] 8 constraints + phase table
-   - [ ] 9 CLAUDE.md
+   - [ ] 9 CLAUDE.md (+ AGENTS.md)
 
    ## Contradictions
 
@@ -156,18 +156,46 @@ after every step, so stopping cleanly and telling the operator to re-run
    Write `docs/phases/PHASES.md` from the template with an empty phase table — phases
    come from `/plan-feature`.
 
-9. **CLAUDE.md.** Copy `docs/templates/CLAUDE.adopted.md` to `CLAUDE.md`, fill the
-   placeholders. If a `CLAUDE.md` already exists, merge: keep its project-specific rules
-   that survive the P1 test ("true in every session?"), move the rest into
-   `docs/constraints.md`, and add the pointer table. Under 150 lines, always.
-   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, or
-   merge `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company.
-   Write the filled template to `CLAUDE.local.md` instead (Claude Code auto-loads it
-   alongside `CLAUDE.md`). Read the existing agent docs first so `CLAUDE.local.md`
-   complements them without repeating them; where they contradict what the code shows,
-   record that under Contradictions in the adoption report — never edit them. If
-   `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc` (frontmatter
-   `alwaysApply: true`) carrying the same pointer table.
+9. **CLAUDE.md (+ AGENTS.md).** One rule for agent docs: **`CLAUDE.md` is the real file,
+   `AGENTS.md` is a symlink to it or absent, and every agent doc that existed before is
+   merge input.** Run this first, verbatim, before reasoning about the merge — the
+   backup is write-once so re-running `/adopt-project` preserves the true pre-belay
+   original, not a copy of what belay wrote last time:
+
+   ```sh
+   mkdir -p .claude/workflow
+   for f in CLAUDE.md AGENTS.md; do
+     if [ -f "$f" ] && [ ! -L "$f" ] && [ ! -e ".claude/workflow/$f.pre-belay" ]; then
+       cp "$f" ".claude/workflow/$f.pre-belay"
+     fi
+   done
+   ```
+
+   Nothing to back up is a success, not a failure — the block exits 0 either way.
+
+   Then copy `docs/templates/CLAUDE.adopted.md` to `CLAUDE.md` and fill the placeholders.
+   Whatever real files existed — `CLAUDE.md`, `AGENTS.md`, or both — are all merge input:
+   keep the project-specific rules that survive the P1 test ("true in every session?"),
+   move the rest into `docs/constraints.md`, add the pointer table, and state a rule that
+   appeared in both docs once. Where the two contradict each other, the code wins and the
+   disagreement goes under Contradictions in the adoption report. Under 150 lines, always.
+   Finally, if `AGENTS.md` was a regular file, make it point at the merged doc — and say
+   so in your output, it is a tracked file changing shape:
+
+   ```sh
+   if [ -f AGENTS.md ] && [ ! -L AGENTS.md ]; then rm AGENTS.md && ln -s CLAUDE.md AGENTS.md; fi
+   ```
+
+   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, move,
+   or merge `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company.
+   Skip the backup and symlink steps above entirely: nothing is overwritten, so there is
+   nothing to back up. Write the filled template to `CLAUDE.local.md` instead (Claude Code
+   auto-loads it alongside `CLAUDE.md`). Read every existing agent doc first — both
+   `CLAUDE.md` and `AGENTS.md`, resolving symlinks so you don't read the same file twice —
+   so `CLAUDE.local.md` complements them without repeating them; where they contradict
+   what the code shows, record that under Contradictions in the adoption report — never
+   edit them. If `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc`
+   (frontmatter `alwaysApply: true`) carrying the same pointer table.
 
 ## Mandatory final step (P6)
 
