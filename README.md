@@ -98,6 +98,12 @@ cd /path/to/repo && claude
 Then answer the "Decisions needed" section of `docs/adoption-report.md` — those answers
 become real ADRs — and start with `/plan-feature <first change>`.
 
+A large repo will not be adopted in one session, and that is fine: `/adopt-project`
+writes `docs/adoption-report.md` as it goes (progress checklist + findings) and
+`docs/constraints.md` module by module. When context or quota runs out, re-run
+`/adopt-project` in a fresh session — it reads the log and resumes at the first
+unfinished step, re-reading nothing it already surveyed.
+
 ### Into a corporate / shared repo (no-touch mode)
 
 ```
@@ -297,7 +303,7 @@ not proceed to real work.
 | Command | Purpose | Writes |
 |---|---|---|
 | `/bootstrap-project [requirements]` | Greenfield entry point — interviews until the requirements actually close, then turns them into project state | `requirements.md`, `constraints.md`, ADR-0001+, `PHASES.md`, `boundaries.rules`, `toolchain.json`, `CLAUDE.md`, `docs/index/` |
-| `/adopt-project` | Existing-codebase entry point — infer stack, layering, conventions and decisions from the code | same as bootstrap, plus `adoption-report.md` (contradictions + decisions needed); ADRs are marked `reconstructed` |
+| `/adopt-project` | Existing-codebase entry point — infer stack, layering, conventions and decisions from the code. Resumable: re-run it after a session runs out of context and it continues where it stopped | same as bootstrap, plus `adoption-report.md` (progress log + contradictions + decisions needed); ADRs are marked `reconstructed` |
 | `/plan-feature <description>` | Feature request → rows in the phase index. Converges on the scope edge and non-goals first, and records them. Stops if the feature contradicts a recorded ADR | `docs/phases/PHASES.md` (feature section: blurb + rows, status `pending`) |
 | `/expand-phase <phase-id>` | One index row → a full spec, written *just in time*, absorbing what the dependency phases revealed | `docs/phases/<id>/spec.md`; status → `expanded` |
 | `/implement-phase <phase-id>` | Do exactly that phase against its spec, inside the hooks | the source files in the spec's Plan, `docs/phases/<id>/notes.md`; status → `in-progress` |

@@ -104,10 +104,23 @@ Single-artifact deploys, transactions across all state. Ceiling: single-writer
 concurrency. Rationale for choosing it over Postgres: unknown.
 ```
 
-**`docs/adoption-report.md`** — the three mandatory sections:
+**`docs/adoption-report.md`** — written from step 1 as the running log of the adoption
+(marker + progress checklist), then its three mandatory sections. taskboard is small
+enough to adopt in one session; on a big repo the same file is what a second session
+reads to resume:
 
 ```markdown
 # Adoption report — taskboard (2026-07-14, commit e41c9a2)
+
+<!-- belay-adoption: complete -->
+
+## Progress
+- [x] 1 toolchain
+- [x] 2 structure survey (layering → constraints.md)
+- [x] 3 doc audit
+- [x] 4 conventions — surveyed: src/routes, src/services, src/db, src/middleware · pending: none
+- [x] 5 reconstructed ADRs · [x] 6 boundary rules · [x] 7 decisions needed
+- [x] 8 constraints + phase table · [x] 9 CLAUDE.md
 
 ## Contradictions
 - Error handling: src/routes/keys.js:41-58 catches errors inline and writes its own

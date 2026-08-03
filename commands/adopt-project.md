@@ -14,34 +14,99 @@ After this command the project is in the same state a bootstrapped project would
 
 **Preconditions:**
 - Working directory is a git repo with at least one commit. Otherwise this is `/bootstrap-project`.
-- Workflow package installed. `docs/constraints.md` must not already exist (if it does, the project is already adopted — the operator probably wants `/refresh-index`).
+- Workflow package installed. State comes from the marker line in `docs/adoption-report.md`:
 
-**Reads:** the codebase (via `git ls-files`, manifests, configs, existing docs/READMEs), `docs/templates/*`.
+| On disk | Do |
+|---|---|
+| no `docs/adoption-report.md` | fresh run — start at step 1 |
+| `<!-- belay-adoption: in-progress -->` | **resume** — see below |
+| `<!-- belay-adoption: complete -->`, or the file exists with no marker (adopted by an older version) | already adopted — stop, the operator probably wants `/refresh-index` |
+
+**Reads:** the codebase (via `git ls-files`, manifests, configs, existing docs/READMEs), `docs/templates/*`, `docs/adoption-report.md` (when resuming).
 **Writes:** `.claude/workflow/toolchain.json`, `.claude/workflow/boundaries.rules`, `docs/constraints.md`, `docs/adr/0001-*.md` … (reconstructed), `docs/adoption-report.md`, `docs/phases/PHASES.md` (empty table), `docs/index/`, `CLAUDE.md`.
+
+## Resume
+
+<!-- ponytail: the resume path is verified by inspection only — no real
+     interrupted run on a large repo yet. Test it by adopting a big codebase,
+     interrupting during step 4, and re-running in a fresh session: the log's
+     surveyed/pending line and docs/constraints.md must together be enough to
+     continue without re-reading a surveyed module. -->
+
+Adopting a large repo does not fit in one session, so this command is written to be
+re-run: `docs/adoption-report.md` is the *running log*, not the final output. It is
+created at step 1 and every step appends to it as it goes (P6 applies inside this
+command, not only at its end).
+
+Resuming: read the log's `## Progress` checklist, skip every step already `[x]`, and
+continue at the first unchecked one. For step 4 that means only the modules listed as
+`pending:` — never re-read a module already listed as `surveyed:`. Say in one line where
+you resumed from before doing anything else.
+
+Running out of context or quota mid-run is expected, not a failure: the log is current
+after every step, so stopping cleanly and telling the operator to re-run
+`/adopt-project` in a fresh session is the correct exit.
 
 ## Steps
 
-1. **Toolchain (P7).** Run `.claude/hooks/lib/detect-toolchain.sh`. Then verify its output
-   against reality: run the detected test command once; if it fails out of the box, record
-   that in the adoption report (a broken test suite is a finding, not a blocker). Report
-   every gap with its concrete fix.
+1. **Open the log, then toolchain (P7).** Before anything else, write
+   `docs/adoption-report.md` with the marker `<!-- belay-adoption: in-progress -->` on
+   line 2 and this skeleton — the later steps fill it in:
+
+   ```markdown
+   # Adoption report — <project>
+
+   <!-- belay-adoption: in-progress -->
+
+   ## Progress
+   - [ ] 1 toolchain
+   - [ ] 2 structure survey (layering → constraints.md)
+   - [ ] 3 doc audit
+   - [ ] 4 conventions — surveyed: none · pending: <fill from the index in step 2>
+   - [ ] 5 reconstructed ADRs
+   - [ ] 6 boundary rules
+   - [ ] 7 decisions needed
+   - [ ] 8 constraints + phase table
+   - [ ] 9 CLAUDE.md
+
+   ## Contradictions
+
+   ## Decisions needed
+
+   ## Toolchain gaps
+   ```
+
+   Then run `.claude/hooks/lib/detect-toolchain.sh` and verify its output against
+   reality: run the detected test command once; if it fails out of the box, that is a
+   finding, not a blocker. Append every gap with its concrete fix under **Toolchain
+   gaps**, tick step 1.
 
 2. **Structure survey.** Run `scripts/build-index.sh`, then read
    `docs/index/_overview.md`. From the module list and dependency edges, infer the
    *de facto* layering: which directories act as entry points, which as domain/services,
    which as infrastructure. Name the layers after what the directories are actually
-   called, not textbook names.
+   called, not textbook names. Write `docs/constraints.md` now, from
+   `docs/templates/constraints.md`, with §Layering filled — the rest of its sections
+   stay as template placeholders until step 8. Fill step 4's `pending:` list in the log
+   with the module names from the index.
 
 3. **Existing documentation audit.** Find READMEs, docs/, wikis-in-repo, ADRs, comments
    that claim architecture. For each: current, stale (contradicted by the code), or
-   aspirational (never implemented). List all three categories in the adoption report —
-   stale docs are actively harmful and the operator must decide to fix or delete them.
+   aspirational (never implemented). Append all three categories under
+   **Contradictions** as you find them — stale docs are actively harmful and the
+   operator must decide to fix or delete them.
 
-4. **Convention extraction.** Read a representative sample per module (largest files +
-   most-imported files from the index). Extract the implicit conventions actually
-   followed: naming, error handling shape, test file layout and naming, logging, how
-   configuration is read. Each becomes a rule in `docs/constraints.md` under
-   "Observed conventions", each with one real file as its example.
+4. **Convention extraction — one module at a time.** For each module in the log's
+   `pending:` list: read a representative sample (largest files + most-imported files
+   from that module's index page), extract the implicit conventions actually followed
+   (naming, error handling shape, test file layout and naming, logging, how
+   configuration is read), then **append them to `docs/constraints.md` under "Observed
+   conventions"** — each with one real file as its example — and move that module from
+   `pending:` to `surveyed:` in the log before starting the next one.
+
+   Write and move on: never hold more than one module's file contents at a time, and
+   never carry findings across modules to write them "at the end". The peak context of
+   this command is one module, and what has been written is what survives.
 
    Methodology or architecture skills active in this session are a second source, subordinate
    to the code. Where such a skill states a rule the code **already follows**, transcribe it
@@ -50,21 +115,24 @@ After this command the project is in the same state a bootstrapped project would
    it). Where it **contradicts** the observed convention, the code wins: that rule does not
    enter constraints.md, it becomes a line in step 7's "Decisions needed", phrased as a
    question. Adopting it later is an ADR; changing the existing code to match is a phase via
-   `/plan-feature`, never a fix in passing. Show the operator the drafted lines for
-   confirmation before writing them — a rule nobody ratified would bind every future session
-   to one person's preference.
+   `/plan-feature`, never a fix in passing. Show the operator the drafted skill-derived lines
+   for confirmation once, when the last module is surveyed — a rule nobody ratified would bind
+   every future session to one person's preference. Conventions read straight off the code
+   need no confirmation; they get written per module as above.
 
    **When the harvest cannot happen, say so.** If no methodology skills are active in this
    session (a teammate's machine, Cursor via `.cursor/commands/`, headless `claude -p`), or
-   if there is no operator to confirm, do not leave the absence invisible — this command does
-   not run twice. Write one line at the top of `docs/constraints.md` recording that no
+   if there is no operator to confirm, do not leave the absence invisible — a resumed session
+   reads the file, not this conversation. Write one line at the top of `docs/constraints.md` recording that no
    house rules were harvested, and what closes the gap later: state the rule here in
    self-contained prose, and add an ADR for any rule that constrains future work. Never
    "follow skill X" — the next reader may not have it (P7: a gap is stated, never silent).
 
 5. **Reconstructed ADRs.** For each significant decision visible in the code (framework
-   choice, database, layering, sync/async style, auth approach), write an ADR from the
-   template with status **`reconstructed`** and this header line:
+   choice, database, layering, sync/async style, auth approach), write its ADR file the
+   moment the decision is identified — one file per decision, next sequential number
+   from what is already in `docs/adr/`, so an interrupted step 5 resumes on its own.
+   Use the template with status **`reconstructed`** and this header line:
    `> Reconstructed from code during adoption — records what IS, not what was decided. Verify before relying on the rationale.`
    Never invent rationale; where the reason isn't visible, write "rationale unknown".
 
@@ -74,14 +142,19 @@ After this command the project is in the same state a bootstrapped project would
    contradiction in the gap report instead. A rule the codebase already violates would
    make the boundary hook cry wolf on every edit.
 
-7. **Gap report.** Write `docs/adoption-report.md` with exactly three sections:
-   - **Contradictions** — where the code disagrees with itself (two error-handling styles, duplicated modules, layering violations). Facts with file references, no fixes.
+7. **Gap report.** The log already carries **Contradictions** (step 3, plus anything
+   steps 4–6 turned up) and **Toolchain gaps** (step 1). Fill the remaining section:
    - **Decisions needed** — one line per human decision, each phrased as a question with the options observed in the code. **Open this section with the routing line, written into the file** (not just followed by you): an answer typed here changes nothing until it becomes a *new* ADR in `docs/adr/` from `docs/templates/adr.md`, next sequential number, status `accepted`; where it settles something a step 5 ADR only reconstructed, that ADR gets status `superseded` with a pointer to the new one, never an edit in place. The session that answers these questions arrives days later and reads `CLAUDE.md` plus this file — if the routing lives only in your head, the answer dies on disk while the reconstructed ADR keeps binding.
-   - **Toolchain gaps** — from step 1, with proposed fixes.
 
-8. **Constraints + phase table.** Write `docs/constraints.md` (layering from step 2,
-   conventions from step 4). Write `docs/phases/PHASES.md` from the template with an
-   empty phase table — phases come from `/plan-feature`.
+   Then re-read Contradictions and Toolchain gaps as written: sections appended across
+   several sessions duplicate and contradict. Merge duplicates, drop what a later step
+   resolved.
+
+8. **Constraints + phase table.** Finish `docs/constraints.md` — §Layering (step 2) and
+   §Observed conventions (step 4) are already there; fill the remaining sections
+   (Invariants, Error handling, Testing) and remove any leftover template placeholder.
+   Write `docs/phases/PHASES.md` from the template with an empty phase table — phases
+   come from `/plan-feature`.
 
 9. **CLAUDE.md.** Copy `docs/templates/CLAUDE.adopted.md` to `CLAUDE.md`, fill the
    placeholders. If a `CLAUDE.md` already exists, merge: keep its project-specific rules
@@ -100,7 +173,10 @@ After this command the project is in the same state a bootstrapped project would
 
 Verify the written state: `docs/adoption-report.md`, `docs/constraints.md`,
 `docs/phases/PHASES.md`, `CLAUDE.md` (< 150 lines), `.claude/workflow/toolchain.json`,
-`.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Print the
+`.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Only once that
+passes, flip the log's marker to `<!-- belay-adoption: complete -->` — the marker means
+"verified", not "the steps ran", and it is what stops the next `/adopt-project` from
+re-adopting. Print the
 "Decisions needed" section of the adoption report verbatim as your final output — those
 questions are the handoff. Offer one commit: `chore: adopt project into workflow`.
 Corporate mode: verify `CLAUDE.local.md` (< 150 lines) instead of `CLAUDE.md`, and skip
@@ -110,6 +186,8 @@ the commit offer — the workflow state is deliberately invisible to git.
 
 - **Codebase too inconsistent to infer layering** → write `boundaries.rules` with layers but zero `deny` lines, and make "choose the layering" the first entry in Decisions needed. The boundary hook is inert until the humans decide; that is honest.
 - **No tests / no lint anywhere** → toolchain gaps name concrete options per stack (from detect-toolchain's output). Do not install tools unprompted.
+- **Context or quota runs out mid-run** (the normal case on a large repo) → stop cleanly: the log is current after every step, so there is nothing to salvage. Tell the operator to re-run `/adopt-project` in a fresh session, and which step it will resume at. Never rush the remaining modules to "finish" — a shallow survey written to disk outlives the session that wrote it.
+- **Log says `in-progress` but the checked steps' outputs are missing** (log hand-edited, or a write was interrupted) → trust the files, not the checklist: untick any step whose output does not exist, say so, and redo it.
 
 ## Handoff
 
