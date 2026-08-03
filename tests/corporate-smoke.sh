@@ -15,6 +15,8 @@ command -v jq >/dev/null 2>&1 || { echo "corporate-smoke: jq required (merge ass
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/xdg" && export XDG_CONFIG_HOME="$TMP/xdg"
+# install.sh registers every install under $HOME — keep the real one clean.
+mkdir -p "$TMP/home" && export HOME="$TMP/home"
 CHECKS=0 FAILS=0
 ok()  { CHECKS=$((CHECKS+1)); echo "  PASS: $1"; }
 bad() { CHECKS=$((CHECKS+1)); FAILS=$((FAILS+1)); echo "  FAIL: $1"; }
@@ -158,6 +160,50 @@ check "no corporate artifacts: settings.local.json" test ! -e "$B/.claude/settin
 check "no corporate artifacts: exclude block" bash -c '! grep -q claude-belay "$1/.git/info/exclude" 2>/dev/null' _ "$B"
 check "commands keep canonical paths (no .belay rewrite)" \
   bash -c '! grep -q "\.belay/docs" "$1/.claude/commands/plan-feature.md"' _ "$B"
+
+# ===================== hook wiring is package-owned ==========================
+# A hook added upstream must reach an already-installed project on re-install,
+# without duplicating what is there and without eating the project's own hooks.
+echo "== hook wiring propagation =="
+jq '.hooks.PostToolUse += [
+      {"matcher":"Edit","hooks":[{"type":"command","command":"echo project-owned"}]},
+      {"matcher":"Edit","hooks":[{"type":"command","command":"\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/removed-gate.sh"}]}
+    ]' "$B/.claude/settings.json" >"$TMP/s.json" && mv "$TMP/s.json" "$B/.claude/settings.json"
+
+# Package copy with one extra hook, standing in for a future release.
+mkdir -p "$TMP/pkg"
+cp -R "$PKG/install.sh" "$PKG/hooks" "$PKG/commands" "$PKG/templates" "$PKG/scripts" "$PKG/settings" "$TMP/pkg/"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$TMP/pkg/hooks/dummy-gate.sh"
+chmod +x "$TMP/pkg/hooks/dummy-gate.sh"
+jq '.hooks.SessionStart = [{"hooks":[{"type":"command","command":"\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dummy-gate.sh"}]}]' \
+  "$TMP/pkg/settings/settings.json" >"$TMP/s.json" && mv "$TMP/s.json" "$TMP/pkg/settings/settings.json"
+
+"$TMP/pkg/install.sh" "$B" >"$TMP/install5.log" 2>&1 \
+  && ok "re-install from a newer package exits 0" || { bad "re-install from a newer package exits 0"; sed 's/^/    /' "$TMP/install5.log"; }
+check "new hook on a new event reaches an existing install" \
+  grep -q 'dummy-gate.sh' "$B/.claude/settings.json"
+check "project's own hook entry survives the rewire" \
+  grep -q 'project-owned' "$B/.claude/settings.json"
+check "wiring of an upstream-deleted hook is dropped" \
+  bash -c '! grep -q removed-gate.sh "$1/.claude/settings.json"' _ "$B"
+check "no duplicate wiring after re-install" \
+  test "$(grep -c 'post-edit-gate.sh' "$B/.claude/settings.json")" = 1
+
+"$PKG/install.sh" "$B" >"$TMP/install6.log" 2>&1   # back to the real package
+check "dummy wiring removed once upstream drops it" \
+  bash -c '! grep -q dummy-gate.sh "$1/.claude/settings.json"' _ "$B"
+
+# ============================ install registry ===============================
+echo "== install registry / stale report =="
+REG="$HOME/.claude-belay/installs"
+check "install registered" grep -qxF "$B" "$REG"
+check "registered exactly once after repeated installs" test "$(grep -cxF "$B" "$REG")" = 1
+check "corporate install registered too" grep -qxF "$A" "$REG"
+check "stale report silent when every install is current" \
+  bash -c 'test -z "$("$1/scripts/installs-stale.sh")"' _ "$PKG"
+printf 'belay deadbee (installed 2020-01-01)\n' >"$B/.claude/workflow/belay-version"
+check "stale report names the install left behind" \
+  bash -c '"$1/scripts/installs-stale.sh" | grep -q "$2"' _ "$PKG" "$B"
 
 echo ""
 echo "corporate-smoke: $((CHECKS-FAILS))/$CHECKS passed"

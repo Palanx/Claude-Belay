@@ -170,6 +170,29 @@ All state (`.claude/workflow/`, `docs/`) is shared — sessions from either agen
 converge on the same files (P6/P8). Cursor's hooks are beta; if an event name or
 payload field changes upstream, only `cursor-adapter.sh` needs updating.
 
+### Updating an installed project
+
+```
+cd <this repo> && git pull
+./install.sh /path/to/repo          # repeat the flags it was installed with
+```
+
+Re-installing is the upgrade: commands, hooks, templates, the index script and belay's
+hook wiring are replaced with the current package; project state (`CLAUDE.md`, `docs/`,
+`boundaries.rules`, `toolchain.json`) is untouched.
+
+Knowing *which* projects are behind is the package's job, not the project's. `install.sh`
+records every target in `~/.claude-belay/installs`, and opening a Claude session in this
+repo lists the installs whose `.claude/workflow/belay-version` stamp is older than HEAD
+(SessionStart hook → `scripts/installs-stale.sh`, silent when everything is current; run
+it by hand any time). Nothing new runs inside the consuming projects: the package may not
+exist on that machine, an update applied mid-session would mutate the gates the session is
+being judged by (P3), and corporate installs must stay no-touch.
+
+Same single-machine caveat as the feedback loop — the registry lives under `$HOME`. Paths
+that no longer hold an install are skipped silently; the registry is never pruned, so
+delete lines by hand if it gets noisy.
+
 ### What to customize vs leave alone
 
 **Customize (project-owned):** `.claude/workflow/boundaries.rules` (via the entry
@@ -179,8 +202,17 @@ missed), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
 
 **Leave alone (package-owned, overwritten on re-install):** `.claude/hooks/*`,
 `.claude/commands/*`, `scripts/build-index.sh`, `docs/templates/*`, `docs/index/*`
-(generated). If a hook misbehaves, fix it in the package and re-run `install.sh`, or
-you'll lose the fix at the next upgrade.
+(generated), and belay's own hook entries in `.claude/settings.json`. If a hook
+misbehaves, fix it in the package and re-run `install.sh`, or you'll lose the fix at the
+next upgrade.
+
+Hook *wiring* is package-owned as well: on every re-install, any entry whose command
+points into `.claude/hooks/` is dropped and replaced by the package's current wiring —
+which is how a hook added upstream reaches a project that is already installed, and how
+wiring for a hook deleted upstream disappears. Every other entry in the file is
+preserved, so your own hooks are safe **as long as their scripts do not live in
+`.claude/hooks/`**. This step needs `jq`; without it the wiring is left alone and the
+installer says so, naming the hooks that are missing.
 
 Corporate mode: same split, relocated — project-owned becomes `CLAUDE.local.md` and
 everything under `.belay/docs/` except `.belay/docs/templates/` and `.belay/docs/index/`;
@@ -367,7 +399,8 @@ project dies with that session unless it travels back here. The return channel:
    (SessionStart hook → `scripts/feedback-pending.sh`) with pointers to the repro data —
    the fixing session starts loaded.
 4. Fix here, flip the entry to `status: resolved (<commit>)`, re-run `install.sh` in the
-   consumers.
+   consumers — the same SessionStart lists which of them are still on the old commit
+   (see [Updating an installed project](#updating-an-installed-project)).
 
 Single-machine by design (the store is under `$HOME`); if feedback must cross machines,
 file it as an issue on this repo instead.

@@ -15,8 +15,11 @@
 # doubles as the uninstall manifest.
 #
 # Idempotent: package-owned files (commands, hooks, templates, index script)
-# are overwritten on re-install; project-owned files (settings.json content,
-# boundaries.rules, toolchain.json, CLAUDE.md, docs/*) are never clobbered.
+# are overwritten on re-install; project-owned files (boundaries.rules,
+# toolchain.json, CLAUDE.md, docs/*) are never clobbered. Hook *wiring* is
+# package-owned too: belay's own entries in settings.json are replaced on every
+# re-install (see rewire()), so a hook added to the package reaches projects
+# that are already installed. Entries the project added itself survive.
 set -euo pipefail
 
 PKG="$(cd "$(dirname "$0")" && pwd)"
@@ -94,6 +97,14 @@ if [ "$CORPORATE" -eq 1 ]; then
   : >"$TARGET/.claude/workflow/corporate"
 fi
 
+# Install registry, same $HOME channel as /belay-feedback: outside the repo, so
+# no git footprint and corporate-safe. scripts/installs-stale.sh (package repo
+# only) reads it to report installs left behind by a newer package commit.
+REG="$HOME/.claude-belay/installs"
+if mkdir -p "$(dirname "$REG")" 2>/dev/null; then
+  grep -qxF "$TARGET" "$REG" 2>/dev/null || printf '%s\n' "$TARGET" >>"$REG"
+fi
+
 # --- project-owned files (create only if absent) ----------------------------
 if [ ! -f "$TARGET/.claude/workflow/boundaries.rules" ]; then
   # Ships with the example layers commented out: the hook is inert until the
@@ -106,27 +117,63 @@ fi
 # --- settings wiring --------------------------------------------------------
 # Corporate mode targets .claude/settings.local.json (Claude Code merges it in,
 # conventionally untracked) so a tracked settings.json is never modified.
+
+# Ownership test for hook entries: any command pointing into .claude/hooks/ is
+# belay's — that whole directory is package-owned (see the README). Matching on
+# the directory instead of a list of script names also cleans up the wiring of
+# a hook that was deleted upstream, whose file no longer exists to name.
+rewire() { # rewire <target json> <package wiring json> <label> — needs jq
+  local dst="$1" add="$2" label="$3" tmp
+  tmp="$(mktemp)"
+  # Drop every belay-owned entry from every event key, then append the
+  # package's current wiring. Generic over event names, so a hook on a new
+  # event (SessionStart, ...) propagates too. Groups left empty by the filter
+  # are dropped, so wiring removed upstream disappears downstream.
+  jq -s '
+    .[1] as $pkg | .[0]
+    | .hooks = (.hooks // {})
+    | .hooks |= with_entries(
+        .value |= ( map(.hooks = ((.hooks // []) | map(select(
+                        (.command // "") | contains(".claude/hooks/") | not))))
+                  | map(select((.hooks | length) > 0)) ))
+    | reduce ($pkg.hooks | keys[]) as $k (.; .hooks[$k] = ((.hooks[$k] // []) + $pkg.hooks[$k]))
+    | .hooks |= with_entries(select((.value | length) > 0))
+    | if $pkg.version then .version = (.version // $pkg.version) else . end
+  ' "$dst" "$add" >"$tmp" || { rm -f "$tmp"; echo "  WARNING: could not rewire $label (invalid JSON?)"; return 0; }
+  if cmp -s "$tmp" "$dst"; then
+    rm -f "$tmp"; echo "  $label already wired — up to date"
+  else
+    mv "$tmp" "$dst"; echo "  re-wired belay hooks in $label (the project's own entries are preserved)"
+  fi
+}
+
+unwired() { # unwired <settings file> <package wiring file> — names package hooks absent from it
+  local out="" b f
+  for f in "$PKG"/hooks/*.sh; do
+    b="$(basename "$f")"
+    grep -qF "$b" "$2" || continue
+    grep -qF "$b" "$1" || out="$out $b"
+  done
+  printf '%s' "$out"
+}
+
 SETREL="${SET#"$TARGET"/}"
+SET_SKIPPED=0
 if [ "$CORPORATE" -eq 1 ] && [ -f "$SET" ] && tracked "$SETREL"; then
+  SET_SKIPPED=1
   echo "  WARNING: $SETREL is tracked by the target repo — left untouched; merge by hand:"
-  echo "           append the PostToolUse/PreToolUse entries from $PKG/settings/settings.json"
+  echo "           append the hook entries from $PKG/settings/settings.json"
 elif [ ! -f "$SET" ]; then
   cp "$PKG/settings/settings.json" "$SET"
   echo "  created $SETREL (hook wiring)"
-elif grep -q "post-edit-gate.sh" "$SET"; then
-  echo "  $SETREL already wired — left untouched"
 elif command -v jq >/dev/null 2>&1; then
-  tmp="$(mktemp)"
-  jq -s '
-    .[1].hooks as $add | .[0]
-    | .hooks = (.hooks // {})
-    | .hooks.PostToolUse = ((.hooks.PostToolUse // []) + $add.PostToolUse)
-    | .hooks.PreToolUse  = ((.hooks.PreToolUse  // []) + $add.PreToolUse)
-  ' "$SET" "$PKG/settings/settings.json" >"$tmp" && mv "$tmp" "$SET"
-  echo "  merged hook wiring into existing $SETREL (review the diff)"
+  rewire "$SET" "$PKG/settings/settings.json" "$SETREL"
 else
-  echo "  WARNING: $SET exists and jq is not installed — merge by hand:"
-  echo "           append the PostToolUse/PreToolUse entries from $PKG/settings/settings.json"
+  SET_SKIPPED=1
+  miss="$(unwired "$SET" "$PKG/settings/settings.json")"
+  echo "  WARNING: $SETREL exists and jq is not installed — belay's hook wiring was NOT updated."
+  [ -z "$miss" ] || echo "           these package hooks are not wired in $SETREL:$miss"
+  echo "           install jq and re-run, or copy the hook entries from $PKG/settings/settings.json by hand"
 fi
 
 # --- Cursor wiring (--cursor) -----------------------------------------------
@@ -141,21 +188,11 @@ if [ "$CURSOR" -eq 1 ]; then
   elif [ ! -f "$CHJ" ]; then
     cp "$PKG/settings/hooks.cursor.json" "$CHJ"
     echo "  created .cursor/hooks.json (cursor-adapter wiring)"
-  elif grep -q "cursor-adapter.sh" "$CHJ"; then
-    echo "  .cursor/hooks.json already wired — left untouched"
   elif command -v jq >/dev/null 2>&1; then
-    tmp="$(mktemp)"
-    jq -s '
-      .[1].hooks as $add | .[0]
-      | .version = (.version // 1)
-      | .hooks = (.hooks // {})
-      | .hooks.afterFileEdit        = ((.hooks.afterFileEdit        // []) + $add.afterFileEdit)
-      | .hooks.beforeShellExecution = ((.hooks.beforeShellExecution // []) + $add.beforeShellExecution)
-    ' "$CHJ" "$PKG/settings/hooks.cursor.json" >"$tmp" && mv "$tmp" "$CHJ"
-    echo "  merged cursor-adapter wiring into existing .cursor/hooks.json (review the diff)"
+    rewire "$CHJ" "$PKG/settings/hooks.cursor.json" ".cursor/hooks.json"
   else
-    echo "  WARNING: $CHJ exists and jq is not installed — merge by hand:"
-    echo "           append the entries from $PKG/settings/hooks.cursor.json"
+    echo "  WARNING: $CHJ exists and jq is not installed — cursor wiring was NOT updated;"
+    echo "           copy the entries from $PKG/settings/hooks.cursor.json by hand"
   fi
   # Cursor reads AGENTS.md; keep CLAUDE.md as the single source of truth.
   # Corporate: no symlink — a new root file is repo-visible noise; the Cursor
@@ -220,6 +257,12 @@ if [ "$CURSOR" -eq 1 ]; then
 fi
 bash -n "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh "$TARGET/$SCRIPTS/build-index.sh"
 if command -v jq >/dev/null 2>&1 && [ -f "$SET" ]; then jq . "$SET" >/dev/null; fi
+# The rewire is silent on success, so assert it took: every package hook the
+# wiring references must be present in the target settings (P7 — loud gaps).
+if [ "$SET_SKIPPED" -eq 0 ] && [ -f "$SET" ]; then
+  miss="$(unwired "$SET" "$PKG/settings/settings.json")"
+  [ -z "$miss" ] || { echo "  MISSING after install: hooks not wired in $SETREL:$miss" >&2; fail=1; }
+fi
 if [ "$CORPORATE" -eq 1 ]; then
   grep -q 'claude-belay' "$EXC" || { echo "  MISSING after install: exclude block in $EXC" >&2; fail=1; }
   # No-touch guarantee: nothing NEW may appear in git status. Lines may
