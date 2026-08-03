@@ -82,9 +82,27 @@ elicit requirements interactively (step 2).
 
 8. **CLAUDE.md.** Copy `docs/templates/CLAUDE.bootstrap.md` to `CLAUDE.md` and fill the
    placeholders (project name, one-line purpose, layering summary). It must stay under
-   150 lines (P1) — everything else is reached through its pointer table.
-   **Corporate mode** (`.claude/workflow/corporate` exists): never create or modify
-   `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company. Write
+   150 lines (P1) — everything else is reached through its pointer table. A new repo can
+   still arrive with scaffolded agent docs, so the same rule as `/adopt-project` step 9
+   applies: `CLAUDE.md` is the real file, `AGENTS.md` is a symlink to it or absent, and
+   any real agent doc found is merge input with a write-once backup:
+
+   ```sh
+   mkdir -p .claude/workflow
+   for f in CLAUDE.md AGENTS.md; do
+     if [ -f "$f" ] && [ ! -L "$f" ] && [ ! -e ".claude/workflow/$f.pre-belay" ]; then
+       cp "$f" ".claude/workflow/$f.pre-belay"
+     fi
+   done
+   # after writing CLAUDE.md:
+   if [ -f AGENTS.md ] && [ ! -L AGENTS.md ]; then rm AGENTS.md && ln -s CLAUDE.md AGENTS.md; fi
+   ```
+
+   On a repo with no agent docs both blocks are a no-op that still exits 0.
+
+   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, or move
+   `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company; skip the
+   backup and symlink steps above, since nothing is overwritten. Write
    the filled template to `CLAUDE.local.md` instead (Claude Code auto-loads it alongside
    `CLAUDE.md`), complementing any existing agent docs without repeating them. If
    `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc` (frontmatter

@@ -52,7 +52,26 @@ else
   SET="$TARGET/.claude/settings.json"
 fi
 
+# --- agent-doc canonicalization (normal mode only) --------------------------
+# One rule: CLAUDE.md is the real file, AGENTS.md is a symlink to it or absent.
+# The installer never rewrites either — the merge needs an entry command — but a
+# CLAUDE.md symlink has to stop the install *before* anything is written, or
+# step 9 writes through it and silently clobbers the target. Corporate mode is
+# exempt: it never writes CLAUDE.md at all.
+if [ "$CORPORATE" -eq 0 ] && [ -L "$TARGET/CLAUDE.md" ]; then
+  echo "install.sh: $TARGET/CLAUDE.md is a symlink -> $(readlink "$TARGET/CLAUDE.md")" >&2
+  echo "  belay writes CLAUDE.md as a real file; installing would let /adopt-project write" >&2
+  echo "  through the symlink and overwrite its target. Resolve it first: replace CLAUDE.md" >&2
+  echo "  with the real content (rm CLAUDE.md && cp <target> CLAUDE.md), then re-run." >&2
+  exit 1
+fi
+
 echo "Installing workflow package into $TARGET"
+
+if [ "$CORPORATE" -eq 0 ] && [ -f "$TARGET/AGENTS.md" ] && [ ! -L "$TARGET/AGENTS.md" ]; then
+  echo "  note: AGENTS.md is a real file — left untouched here; /adopt-project or"
+  echo "        /bootstrap-project will fold it into CLAUDE.md and leave it a symlink"
+fi
 
 # --- package-owned files (safe to overwrite) --------------------------------
 mkdir -p "$TARGET/.claude/commands" "$TARGET/.claude/hooks/lib" "$TARGET/$SCRIPTS" \

@@ -118,7 +118,8 @@ commit workflow files. Two guarantees, both checked by the installer itself:
 - **No tracked file is ever modified.** `CLAUDE.md`, `AGENTS.md` and `.cursor/rules/*`
   are never touched — `/adopt-project` writes its pointer doc to `CLAUDE.local.md`
   (auto-loaded by Claude Code alongside `CLAUDE.md`) and, under `--cursor`, to
-  `.cursor/rules/belay.mdc`; the `AGENTS.md` symlink is skipped. A tracked
+  `.cursor/rules/belay.mdc`; the `AGENTS.md` symlink is skipped, and no `.pre-belay`
+  backup is written because nothing is overwritten. A tracked
   `.claude/settings.json` is never merged (wiring goes to `.claude/settings.local.json`),
   and a tracked `.cursor/hooks.json` or any tracked file colliding with an installed one
   is skipped with manual-merge instructions.
@@ -170,7 +171,38 @@ Code and from Cursor (`cursor-agent` or the IDE):
   only, because Cursor ignores `afterFileEdit` output — the fix-it-same-turn loop is
   weaker there, and `/validate-phase` remains the hard gate.
 - `AGENTS.md` is symlinked to `CLAUDE.md` (Cursor reads `AGENTS.md`), so there is one
-  source of truth for both agents.
+  source of truth for both agents. See below for what happens when the repo already has
+  agent docs.
+
+### Existing CLAUDE.md / AGENTS.md
+
+One rule, six states: **`CLAUDE.md` is the real file, `AGENTS.md` is a symlink to it or
+absent, and every agent doc that existed before is merge input with a write-once backup
+in `.claude/workflow/<name>.pre-belay`.** It applies in every normal install, with or
+without `--cursor` — if `AGENTS.md` exists, something reads it (Codex, Copilot, the
+Cursor IDE); `--cursor` only decides whether the symlink is *created* when nothing was
+there. The installer never rewrites either file (the merge needs an entry command); the
+work happens in `/adopt-project` step 9 / `/bootstrap-project` step 8.
+
+| Before install | After the entry command |
+|---|---|
+| neither | `CLAUDE.md` real; `AGENTS.md` symlink if `--cursor` |
+| only `CLAUDE.md` | backed up, merged in place |
+| only `AGENTS.md` (real file) | backed up, folded into a real `CLAUDE.md`; `AGENTS.md` → symlink |
+| both real, divergent | both backed up, both merge input, one `CLAUDE.md`; `AGENTS.md` → symlink |
+| `AGENTS.md -> CLAUDE.md` already | unchanged shape; `CLAUDE.md` backed up and merged |
+| `CLAUDE.md -> AGENTS.md` (reversed) | **install refuses** — writing `CLAUDE.md` would clobber the symlink's target; resolve it, then re-run |
+
+Backups are write-once, so re-running `/adopt-project` keeps the true pre-belay original
+rather than a copy of what belay wrote last time. They live under `.claude/workflow/`, so
+they land in the adoption commit — the pre-adoption doc stays as history.
+
+**Corporate mode never does any of this.** `CLAUDE.md` and `AGENTS.md` are read-only
+input in all six states: nothing is created, modified, moved, or backed up (there is
+nothing to back up — belay writes `CLAUDE.local.md`). Known gap, by design: a corporate
+install *without* `--cursor` on a repo that does use Cursor gets no `.cursor/rules/belay.mdc`,
+so Cursor only sees the company's `AGENTS.md` and never learns about the workflow — pass
+`--cursor` if that repo is driven from Cursor.
 
 All state (`.claude/workflow/`, `docs/`) is shared — sessions from either agent
 converge on the same files (P6/P8). Cursor's hooks are beta; if an event name or
