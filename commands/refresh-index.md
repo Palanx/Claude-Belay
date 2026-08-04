@@ -51,7 +51,7 @@ exactly that in one line. Offer a commit of the regenerated files
 
 ## Failure modes
 
-- **Massive drift** (index diff touches most modules — e.g. a big refactor landed) → recommend re-running `/adopt-project`-style re-inspection: constraints and boundary rules may describe the old architecture. Do not auto-rewrite constraints; that needs operator eyes.
+- **Massive drift** (index diff touches most modules — e.g. a big refactor landed) → constraints and boundary rules may describe the old architecture. Recommend `/adopt-project`, which has a re-adoption path for exactly this ("Re-adopting an already-adopted project"): it re-derives the observations and reports contradictions, and is forbidden from rewriting an accepted ADR or a confirmed constraint. Do not auto-rewrite constraints here; that needs operator eyes.
 - **PHASES.md hand-edited into an unparseable state** → repair the table structure (columns, status vocabulary), preserving every row's content; report what was repaired.
 
 ## Handoff

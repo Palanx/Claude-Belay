@@ -30,9 +30,13 @@ machine-enforced by `.claude/workflow/boundaries.rules`):
 {{LAYERING_SUMMARY — e.g. "routes → services → domain; infra is called only via
 interfaces owned by domain. Nothing imports upward."}}
 
-Enforcement is real: hooks lint/typecheck every edit and block commits with secrets.
-When a hook reports a failure, fix it before doing anything else — the error text tells
-you how. Changing a boundary rule requires a superseding ADR, never a silent edit.
+Enforcement is real, and its exact reach is recorded, not assumed: the hooks run whatever
+`.claude/workflow/toolchain.json` configures for the file you touched, and print a loud
+`workflow gap:` line naming any category that has no tool. Read that file's `gaps` to know
+what is *not* checked here — some stacks have no per-file typecheck at all. Commits with
+secrets are blocked in every project. When a hook reports a failure, fix it before doing
+anything else — the error text tells you how. Changing a boundary rule requires a
+superseding ADR, never a silent edit.
 
 ## Conventions
 

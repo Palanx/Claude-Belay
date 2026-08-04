@@ -16,7 +16,7 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
 - No phase for a *different* feature is `in-progress` (check the PHASES.md table). If one is, warn the operator — interleaving features is allowed but must be their explicit call.
 - If you were sent here to re-cut an existing feature's phases rather than to plan a new feature, skip to "Re-cutting a phase whose premise died" below; steps 1–5 still apply, step 6 does not.
 
-**Reads:** `CLAUDE.md`, `docs/constraints.md`, `docs/adr/` (titles + status lines of all; full text of any ADR the feature might touch), `docs/index/_overview.md` (plus the specific module sections the feature will touch), `docs/phases/PHASES.md`.
+**Reads:** `CLAUDE.md`, `docs/constraints.md`, `docs/adr/` (titles + status lines of all; full text of any ADR the feature might touch), `docs/index/_overview.md` (plus the specific module sections the feature will touch), `docs/phases/PHASES.md`, and `docs/product/requirements.md` **if present** (bootstrapped projects have one; adopted projects do not — its absence is normal, not a precondition failure).
 **Writes:** `docs/phases/PHASES.md` (appended feature section + rows).
 
 ## Steps
@@ -41,7 +41,11 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    `claude -p`), take the "too vague" failure mode below — never invent the answers.
 
 3. **Conflict detection.** Read every ADR whose topic the feature touches, plus the
-   constraints. If the feature contradicts a recorded decision (e.g. it wants an event
+   constraints, plus `docs/product/requirements.md` where it exists. Requirements are
+   checked in both directions: a feature that serves a stated capability cites its id in the
+   rows it produces (`R4`), and a feature that lands on a recorded **non-goal** is a conflict
+   like any other — the non-goals section is not decoration, it is the answer to an interview
+   somebody already ran. If the feature contradicts a recorded decision (e.g. it wants an event
    queue and ADR-0003 says "no async infrastructure"), STOP and surface the conflict:
    quote the ADR, state the contradiction, and give the operator the two options —
    change the feature, or write a superseding ADR first. That ADR is a *new* file in
@@ -49,6 +53,12 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    ADR it replaces gets status `superseded` with a pointer to it, never an edit in place —
    the old rationale is the record of why the project used to think otherwise. Never plan
    around a recorded decision silently; that is how ADRs die.
+
+   A **non-goal** conflict resolves differently: non-goals are not ADRs, so there is nothing
+   to supersede. The operator either drops the feature or strikes the non-goal from
+   `docs/product/requirements.md` — an amendment that template reserves for operator
+   decision, so it is theirs to make, not yours. Either way it happens before any row is
+   written, and you say which one they chose.
 
 4. **Locate the change.** From the index, list the modules the feature touches and the
    dependency edges between them. This tells you the phase *order*: a phase can only

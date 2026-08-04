@@ -21,6 +21,7 @@ After this command the project is in the same state a bootstrapped project would
 | no `docs/adoption-report.md` | fresh run — start at step 1 |
 | `<!-- belay-adoption: in-progress -->` | **resume** — see below |
 | `<!-- belay-adoption: complete -->`, or the file exists with no marker (adopted by an older version) | already adopted — stop, the operator probably wants `/refresh-index` |
+| already adopted **and** the operator explicitly asks to re-adopt (usually sent here by `/refresh-index` after a refactor big enough that the recorded architecture no longer matches) | **re-adopt as an update** — see below |
 
 **Reads:** the codebase (via `git ls-files`, manifests, configs, existing docs/READMEs), `docs/templates/*`, `docs/adoption-report.md` (when resuming).
 **Writes:** `.claude/workflow/toolchain.json`, `.claude/workflow/boundaries.rules`, `docs/constraints.md`, `docs/adr/0001-*.md` … (reconstructed), `docs/adoption-report.md`, `docs/phases/PHASES.md` (empty table), `docs/index/`, `CLAUDE.md`.
@@ -46,6 +47,33 @@ you resumed from before doing anything else.
 Running out of context or quota mid-run is expected, not a failure: the log is current
 after every step, so stopping cleanly and telling the operator to re-run
 `/adopt-project` in a fresh session is the correct exit.
+
+## Re-adopting an already-adopted project
+
+`/refresh-index` sends work here when the index diff shows a refactor big enough that
+`docs/constraints.md` and `boundaries.rules` may describe the old architecture. This is an
+**update, not a fresh adoption** — the difference is what you are allowed to overwrite:
+
+- **Never rewrite** an ADR with status `accepted`, or a constraint the operator confirmed.
+  Those are decisions, and a decision is only replaced by a superseding ADR (step 5's rule,
+  applied to yourself). A `reconstructed` ADR that the code now contradicts is *also* not
+  edited: it becomes a line in Decisions needed.
+- **Do re-derive** what is observation rather than decision: the toolchain (step 1), the
+  index and the de facto layering (step 2), and the conventions of modules whose files
+  actually changed (step 4 — only those; a module the refactor did not touch is still
+  surveyed).
+- **Append, never replace**, in the report. Reset the marker to `in-progress`, say in one
+  line that this is a re-adoption and what triggered it, and add a dated
+  `## Re-adoption <YYYY-MM-DD>` heading under which the new contradictions and decisions
+  land. The original adoption's findings stay where they are — the operator answered some of
+  them, and deleting the question loses the answer's context.
+- Where the new survey contradicts a written constraint, that is a **contradiction to
+  report**, not a correction to make. The code wins over the docs eventually, but which one
+  moves is the operator's call, and doing it silently would rewrite rules other sessions are
+  being judged by.
+
+Everything else — the step order, the per-module write-and-move-on discipline, the resume
+behaviour — is unchanged.
 
 ## Steps
 
@@ -149,6 +177,14 @@ after every step, so stopping cleanly and telling the operator to re-run
    Then re-read Contradictions and Toolchain gaps as written: sections appended across
    several sessions duplicate and contradict. Merge duplicates, drop what a later step
    resolved.
+
+   **What this step does not do: invent requirements.** `docs/product/requirements.md` is
+   `/bootstrap-project`'s output, and adoption never writes one — code shows you *what* a
+   system does, never *why it was wanted*, and a reconstructed capability list would be a
+   guess wearing an id. If the project's purpose is written down nowhere, say so here and
+   name the fix: the operator writes it from `docs/templates/requirements.md`, once, by
+   hand. Nothing in the pipeline requires it (`/plan-feature` reads it only if present),
+   but without it a feature can never be checked against a stated non-goal.
 
 8. **Constraints + phase table.** Finish `docs/constraints.md` — §Layering (step 2) and
    §Observed conventions (step 4) are already there; fill the remaining sections

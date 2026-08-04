@@ -33,7 +33,7 @@ those failures.
 | P5 | Phase closure test | `CLAUDE.md` + phase dir must suffice; checked in `/validate-phase` |
 | P6 | Filesystem is the only durable channel | every command ends by writing notes/status to disk |
 | P7 | Detect, don't assume, the toolchain | `detect-toolchain.sh` writes `toolchain.json`; gaps are loud |
-| P8 | One pipeline, two entry points | `/bootstrap-project` and `/adopt-project` converge on identical state |
+| P8 | One pipeline, two entry points | `/bootstrap-project` and `/adopt-project` converge on the same *pipeline* state — every command downstream reads the same files either way (the two differ only in what only one of them can know: requirements vs an adoption report) |
 
 ## The pipeline
 
@@ -434,7 +434,7 @@ index without the pipeline is the common corporate case.
 
 | Hook | Event (verified against docs) | What it does |
 |---|---|---|
-| `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | format + lint + file-scoped typecheck on the touched file; failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
+| `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | runs whatever `toolchain.json` has for the touched file's extension — format, lint, and a file-scoped typecheck *where one exists* (several stacks have none: Node/TS typechecks project-wide only, Unity and Unreal not at all — `gaps` names each). Failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
 | `boundary-check.sh` | `PostToolUse`, matcher `Edit\|Write` | grep-heuristic check of `boundaries.rules` deny edges on the touched file |
 | `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit**. Corporate mode: also blocks `git clean -x/-X` (would erase the git-excluded belay state) and blocks commits while any belay state path shows in `git status` |
 
