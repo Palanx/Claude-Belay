@@ -35,8 +35,15 @@ if [ "${1:-}" = "--check" ]; then
   EXC="$(git rev-parse --git-path info/exclude)"
   if grep -q '^# >>> claude-belay' "$EXC" 2>/dev/null; then
     REF="HEAD"; git rev-parse -q --verify '@{u}' >/dev/null 2>&1 && REF='@{u}'
+    block="$(sed -n '/^# >>> claude-belay/,/^# <<< claude-belay/p' "$EXC")"
+    # Read the uninstall-manifest section only. The containment section above it
+    # excludes whole directories (/.claude/, /.cursor/), which legitimately hold
+    # the company's own tracked files — a pull only collides where belay actually
+    # wrote a file. Blocks from before that split have no marker: use them whole.
+    manifest="$(printf '%s\n' "$block" | sed -n '/^# --- uninstall manifest/,$p')"
+    [ -n "$manifest" ] || manifest="$block"
     # Manifest paths are plain (letters, digits, ., /, -): escaping dots is enough.
-    pat="$(sed -n '/^# >>> claude-belay/,/^# <<< claude-belay/p' "$EXC" \
+    pat="$(printf '%s\n' "$manifest" \
       | grep '^/' | sed -e 's#^/##' -e 's/\./\\./g' \
       | awk '{ if ($0 ~ /\/$/) print "^"$0; else print "^"$0"$" }')"
     hits="$([ -n "$pat" ] && git ls-tree -r --name-only "$REF" 2>/dev/null | grep -E "$pat" || true)"

@@ -281,10 +281,25 @@ if [ "$CORPORATE" -eq 1 ]; then
     [ "$owner" = belay ] || echo "# merged: $1"
     emit "$1"
   }
+  # Cursor directories are only claimed if belay wired them, now or before.
+  CURSOR_SEEN="$CURSOR"
+  printf '%s\n' "$OLD_PATHS" | grep -q '^/\.cursor/' && CURSOR_SEEN=1
   NEW_BLOCK="$(
-    echo "# >>> claude-belay corporate mode — uninstall manifest: delete these paths, then this block >>>"
-    echo "# Exception: a path preceded by '# merged:' existed before belay and was only"
-    echo "# merged into — leave those in place when uninstalling."
+    echo "# >>> claude-belay corporate mode >>>"
+    echo "# --- containment: shared directories belay writes into ---"
+    echo "# Directory-wide on purpose. Listing belay's files one by one is not enough:"
+    echo "# .claude/ holds no tracked files, so a SINGLE unlisted file under it makes"
+    echo "# git collapse the lot to '?? .claude/' and expose the whole tree. Safe for"
+    echo "# the company's own files — exclude rules never apply to TRACKED paths, so"
+    echo "# their versioned .claude/settings.json still reports its changes normally."
+    echo "# These two are NOT belay's to delete: see the manifest below for that."
+    echo "/.claude/"
+    [ "$CURSOR_SEEN" -eq 1 ] && echo "/.cursor/"
+    echo "#"
+    echo "# --- uninstall manifest: delete EXACTLY the paths below, then this block ---"
+    echo "# Never delete the two directories above: they also hold company files. A"
+    echo "# path preceded by '# merged:' existed before belay and was only merged"
+    echo "# into — leave those in place."
     emit "/.belay/"
     emit "/CLAUDE.local.md"
     emit "/.claude/workflow/"
@@ -298,8 +313,8 @@ if [ "$CORPORATE" -eq 1 ]; then
       emit "/.cursor/rules/belay.mdc"
     else
       # A re-install that forgot --cursor leaves the Cursor files on disk (the
-      # reaping step below deliberately spares them), so they must keep being
-      # excluded or containment breaks for a flag the operator merely omitted.
+      # reaping step below deliberately spares them), so they stay in the
+      # manifest: still belay's, still there to delete at uninstall.
       printf '%s\n' "$OLD_PATHS" | grep '^/\.cursor/' | while IFS= read -r p; do
         [ -e "$TARGET$p" ] && emit "$p"
       done
@@ -310,17 +325,11 @@ if [ "$CORPORATE" -eq 1 ]; then
   echo "  wrote exclude block to .git/info/exclude (nothing installed will appear in git status)"
 
   # --- reap orphans -----------------------------------------------------------
-  # A package-owned file the package no longer ships stays on disk and drops out
-  # of the manifest, which un-hides it — and because .claude/ holds no tracked
-  # files, git collapses that to "?? .claude/", exposing the whole directory and
-  # failing the no-touch check below. The old manifest proves those paths were
-  # belay's, so delete them.
-  #
-  # belay-debt: this closes the orphan class only. A stray untracked file that
-  # belay never installed (an agent writing .claude/scratch.txt) still collapses
-  # git status to "?? .claude/". Upgrade path: exclude /.claude/ wholesale —
-  # traded away because it would also hide the company's own untracked files
-  # there from their git status.
+  # Containment above no longer depends on this (the directory-wide lines cover
+  # any file, listed or not), but the uninstall manifest does: a package-owned
+  # file the package no longer ships would otherwise sit on disk forever, unnamed
+  # by the manifest that is supposed to account for every installed path. The old
+  # manifest proves those paths were belay's, so delete them.
   NEW_PATHS="$(printf '%s\n' "$NEW_BLOCK" | grep '^/' || true)"
   while IFS= read -r p; do
     [ -n "$p" ] || continue

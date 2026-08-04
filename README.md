@@ -131,13 +131,21 @@ commit workflow files. Two guarantees, both checked by the installer itself:
 Excluded files are invisible to `git ls-files`, so the repo index never picks up
 workflow files either — git containment and index hygiene are the same mechanism.
 
-**Uninstall:** open the `# >>> claude-belay` block in `.git/info/exclude` — it lists
-every installed path. Delete those paths, then the block. The company repo never
-knew. One exception, marked in the block itself: a path preceded by `# merged:`
-existed before belay and was only merged into (a `.claude/settings.local.json` or
-`.cursor/hooks.json` you already had) — leave those in place. Belay decides
-created-vs-merged on the first install and carries the verdict forward in the
-manifest, so a re-install never mistakes its own file for yours.
+The block has two sections, because containment and uninstall want opposite grains.
+**Containment** excludes `/.claude/` and `/.cursor/` whole: those directories hold no
+tracked files, so a single unlisted file under one of them makes git collapse the lot to
+`?? .claude/` and expose the entire tree. Excluding them wholesale is safe for the
+company — exclude rules never apply to *tracked* paths, so their versioned
+`.claude/settings.json` keeps reporting its changes exactly as before; only new untracked
+files there become invisible, and `git add` still warns if you try to stage one.
+
+**Uninstall:** the second section lists every installed path one by one. Delete exactly
+those, then the block — never the two directories from the first section, which also hold
+company files. One exception, marked in place: a path preceded by `# merged:` existed
+before belay and was only merged into (a `.claude/settings.local.json` or
+`.cursor/hooks.json` you already had) — leave those. Belay decides created-vs-merged on
+the first install and carries the verdict forward in the manifest, so a re-install never
+mistakes its own file for yours. The company repo never knew.
 
 **Both mode switches are refused.** Re-running `install.sh` without `--corporate` on a
 corporate install would write `docs/` into the repo; running it *with* `--corporate` on a
