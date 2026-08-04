@@ -121,6 +121,8 @@ if [ -f package.json ]; then
   fi
   if [ -f tsconfig.json ]; then
     append CMD_TYPECHECK "npx tsc --noEmit"
+  else
+    gap "typecheck (node): no tsconfig.json — plain JS project, so /validate-phase has no typecheck to run. Fix: add a tsconfig.json (npx tsc --noEmit), or adopt // @ts-check with \"checkJs\": true, or accept it as a permanent gap."
   fi
   file_block "$NODE_LINT" "$NODE_FMT" "$NODE_TC" js jsx mjs cjs ts tsx
 
@@ -181,7 +183,9 @@ if [ -f Cargo.toml ] && have cargo; then
   append CMD_TEST "cargo test --quiet"
   append CMD_TYPECHECK "cargo check --quiet"
   append CMD_LINT "cargo clippy --quiet -- -D warnings"
-  have rustfmt && file_block "" "rustfmt {file}" "" rs
+  if have rustfmt; then file_block "" "rustfmt {file}" "" rs
+  else gap "format (rust): rustfmt not on PATH — the post-edit gate cannot format .rs files. Fix: rustup component add rustfmt."
+  fi
   if cargo audit --version >/dev/null 2>&1; then append CMD_AUDIT "cargo audit"
   else gap "audit (rust): cargo-audit not installed. Fix: cargo install cargo-audit."
   fi
