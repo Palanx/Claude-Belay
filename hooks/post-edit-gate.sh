@@ -10,7 +10,14 @@ set -u
 . "$(dirname "$0")/lib/common.sh"
 hook_init
 
-FILE="$(json_get .tool_input.file_path)" || exit 0
+# No jq/python3: common.sh has already said so on stderr, but exiting 0 here
+# would leave the gate silently not-run, which is the one thing P7 forbids —
+# and pre-commit-security.sh fails closed on the identical condition. Exit 2 so
+# the message actually reaches Claude instead of dying in an ignored stream.
+FILE="$(json_get .tool_input.file_path)" || {
+  echo "POST-EDIT GATE DID NOT RUN: no jq or python3 on PATH to read the hook input, so the file you just edited was NOT formatted, linted or typechecked. Install jq or python3." >&2
+  exit 2
+}
 [ -n "$FILE" ] || FILE="$(json_get .file_path)"   # Cursor payload shape (via cursor-adapter.sh)
 [ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 
@@ -75,7 +82,24 @@ $out"
   fi
 }
 
+# Every formatter detection writes in place (prettier --write, ruff format,
+# gofmt -w, rustfmt, clang-format -i, csharpier, gdformat), so a successful
+# format silently leaves the file on disk different from what was just written.
+# The next Edit then matches its old_string against stale content and fails on
+# whitespace. Cheap to detect, so detect it (P3) instead of letting it surprise
+# somebody three steps later.
+sum_of() { # sum_of <file> — content digest, or empty if no hasher exists
+  if command -v shasum >/dev/null 2>&1; then shasum "$1" 2>/dev/null | cut -d' ' -f1
+  elif command -v sha1sum >/dev/null 2>&1; then sha1sum "$1" 2>/dev/null | cut -d' ' -f1
+  elif command -v cksum >/dev/null 2>&1; then cksum <"$1" 2>/dev/null
+  fi
+}
+before="$(sum_of "$FILE")"
 run_gate "format" "$FMT"
+after="$(sum_of "$FILE")"
+reformatted=0
+[ -n "$before" ] && [ "$before" != "$after" ] && reformatted=1
+
 run_gate "lint" "$LINT"
 run_gate "typecheck" "$TC"
 
@@ -84,7 +108,18 @@ if [ -n "$fails" ]; then
     echo "POST-EDIT GATE FAILED: $REL"
     echo "Fix every issue below in this file now, before continuing with the task."
     echo "The same checks re-run automatically on your next edit."
+    [ "$reformatted" -eq 1 ] && echo "NOTE: the formatter also rewrote this file — re-read it before editing, or your next edit will not match."
     echo "$fails"
+  } >&2
+  exit 2
+fi
+
+if [ "$reformatted" -eq 1 ]; then
+  {
+    echo "REFORMATTED ON DISK: $REL"
+    echo "\`$FMT\` rewrote the file after your edit — what is on disk is not what you wrote."
+    echo "Re-read it before your next edit to it, or the edit will fail to match."
+    echo "Nothing is wrong: lint and typecheck passed. This is the only notice you get."
   } >&2
   exit 2
 fi

@@ -9,11 +9,19 @@ rule in this file is true in *every* session; keep it under 150 lines.
 
 ## How work happens here
 
+<!-- PIPELINE PROJECT — the default. If this project is driven by hand and Claude is
+     asked only for advice, planning and small changes (README "Lightweight mode" — the
+     common case for an adopted repo, and for every corporate install), replace this
+     section AND the next one with the two marked LIGHTWEIGHT below, and delete the phase
+     rows from the pointer table. Keeping the pipeline text in a hand-driven project tells
+     every session to run a workflow the operator opted out of. -->
+
 One pipeline: `/plan-feature` → `/expand-phase <id>` → `/implement-phase <id>` →
 `/validate-phase <id>` → repeat. Phase state lives in `docs/phases/PHASES.md`
-(vocabulary: `pending | expanded | in-progress | blocked | done`) — trust the table, not
-memory. Never expand a phase whose dependencies aren't `done`. Never mark `done`
-yourself; only `/validate-phase` does. If docs and code seem out of sync, run
+(vocabulary: `pending | expanded | in-progress | blocked | superseded by <ids> | done`) —
+trust the table, not memory. Never expand a phase whose dependencies aren't `done`. Never
+mark `done` yourself; only `/validate-phase` does. A cut that turns out wrong is
+superseded by new rows, never edited or deleted — same rule as an ADR. If docs and code seem out of sync, run
 `/refresh-index` before planning anything.
 
 ## Session reading rule
@@ -22,6 +30,32 @@ Read `CLAUDE.md` (this file) + the current phase's directory
 (`docs/phases/<id>/spec.md`, `notes.md`) + the files the spec points to. Nothing else
 unless the spec proves insufficient — and then record the gap in the phase's `notes.md`.
 For orientation beyond the phase, load ONE section of `docs/index/`, not the whole thing.
+
+<!-- LIGHTWEIGHT variant of the two sections above — use INSTEAD of them, not as well:
+
+## How work happens here
+
+This project is driven by hand. The phase pipeline (`/plan-feature` → `/expand-phase` →
+`/implement-phase` → `/validate-phase`) is installed but deliberately unused: for small
+asks, do the work directly. What still holds, every session:
+
+- The hooks gate a three-line edit exactly as they gate a phase. When one reports a
+  failure, fix it before anything else.
+- Follow the observed conventions in `docs/constraints.md` even where you'd design
+  differently — that is the whole point of an adopted project.
+- Decisions that constrain the future get an ADR in `docs/adr/` — including the ones the
+  operator makes by hand, or you will keep proposing against them.
+- The operator makes most changes without you, so `docs/index/` goes stale silently. If
+  what you read disagrees with the code, say so and run `/refresh-index` before planning
+  anything on top of it.
+- Hand over a whole feature and the pipeline is there for it — start at `/plan-feature`.
+
+## Session reading rule
+
+Read `CLAUDE.md` (this file), then ONE section of `docs/index/` for the area in question —
+never the whole index. `docs/constraints.md` and the ADRs before proposing anything
+structural. Nothing else unless asked.
+     END LIGHTWEIGHT -->
 
 ## Architecture — as observed, not as wished
 
@@ -35,13 +69,16 @@ rationale may be incomplete. A reconstructed ADR is still binding until supersed
 Known contradictions in the codebase live in `docs/adoption-report.md`; do not "fix"
 them in passing — each needs an operator decision first.
 
-Enforcement is real: hooks lint/typecheck every edit and block commits with secrets.
-When a hook reports a failure, fix it before doing anything else. Changing a boundary
-rule requires a superseding ADR, never a silent edit.
+Enforcement is real, and its exact reach is recorded, not assumed: the hooks run whatever
+`.claude/workflow/toolchain.json` configures for the file you touched, and print a loud
+`workflow gap:` line naming any category that has no tool. Read that file's `gaps` to know
+what is *not* checked here — some stacks have no per-file typecheck at all. Commits with
+secrets are blocked in every project. When a hook reports a failure, fix it before doing
+anything else. Changing a boundary rule requires a superseding ADR, never a silent edit.
 
 ## Conventions
 
-- Follow the observed conventions in `docs/constraints.md` §Observed conventions — each has a real file as its reference example.
+- Follow the observed conventions in `docs/constraints.md` `§Observed conventions` — each has a real file as its reference example.
 - Commits: {{COMMIT_CONVENTION — as observed in git log, e.g. Conventional Commits}}.
 - Every command that does work ends by writing its outcome to disk (notes, status).
 - Decisions that constrain the future get an ADR in `docs/adr/` before the code lands.

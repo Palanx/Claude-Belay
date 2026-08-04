@@ -9,10 +9,31 @@
 #                           so the fix-it-same-turn loop of Claude Code is weaker
 #                           here — /validate-phase remains the hard gate)
 #   beforeShellExecution -> pre-commit-security.sh (exit 2 => permission deny)
+#
+# belay-debt: this whole adapter is verified by inspection only — never run with
+# Cursor actually installed, so the event names, the payload field names, the
+# permission protocol and the relative command path in .cursor/hooks.json are all
+# read off the docs rather than observed. Nothing in tests/corporate-smoke.sh can
+# cover it; the suite only asserts the files land. Test it by installing with
+# --cursor into a scratch repo, opening it in Cursor, then: (1) edit a source file
+# with a lint error — the post-edit gate should run (its output may go nowhere,
+# which is expected, see above); (2) stage a file containing AKIAIOSFODNN7EXAMPLE
+# and have the agent run `git commit` — this must be DENIED. If (2) passes
+# silently, the gate never ran: suspect the relative command path first (see the
+# cwd note below), then the payload field names in json_get calls.
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
-# Adapter lives at <root>/.claude/hooks/ — derive the root from that; Cursor
-# does not set CLAUDE_PROJECT_DIR and may not run hooks from the project root.
+# Adapter lives at <root>/.claude/hooks/, so the root is two levels up. Two
+# separate things depend on cwd, and only one of them is ours:
+#   - .cursor/hooks.json names this script relatively ("./.claude/hooks/..."),
+#     which is Cursor's own documented form and is resolved against the project
+#     root by Cursor. If hooks stop firing entirely after a Cursor update, that
+#     resolution is the first thing to check — nothing here can compensate for a
+#     command that never ran.
+#   - The process cwd once we ARE running, which Cursor does not promise is the
+#     root, and which the child hooks need for git and toolchain lookups. Hence
+#     deriving it from $0 rather than trusting $PWD; Cursor also does not set
+#     CLAUDE_PROJECT_DIR, which is what the belay hooks read.
 export CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$DIR/../.." && pwd)}"
 . "$DIR/lib/common.sh"
 hook_init

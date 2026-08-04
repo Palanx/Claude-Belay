@@ -81,8 +81,20 @@ elicit requirements interactively (step 2).
    deep specs for later phases would be built on information that doesn't exist yet.
 
 8. **CLAUDE.md.** Copy `docs/templates/CLAUDE.bootstrap.md` to `CLAUDE.md` and fill the
-   placeholders (project name, one-line purpose, layering summary). It must stay under
-   150 lines (P1) — everything else is reached through its pointer table. A new repo can
+   placeholders (project name, one-line purpose, layering summary).
+
+   **Pick the workflow variant while you are in there.** The template ships both: the
+   pipeline sections and a commented LIGHTWEIGHT pair. Ask the operator once, in one
+   sentence — will they hand whole features to the agent (pipeline), or drive the project
+   themselves and use Claude for advice, planning and small changes (lightweight)? Write the
+   matching pair and delete the other along with its comment markers; for lightweight, also
+   drop the phase rows from the pointer table. A greenfield project usually means the
+   pipeline, so that is the default if the answer is "not sure" or nobody answers — but
+   never ship both: a session that reads a mandate the operator opted out of will follow it.
+   Switching later is editing this one section, and the pipeline stays installed either way.
+
+   Whichever variant, it must stay under 150 lines (P1) — everything else is reached through
+   its pointer table. A new repo can
    still arrive with scaffolded agent docs, so the same rule as `/adopt-project` step 9
    applies: `CLAUDE.md` is the real file, `AGENTS.md` is a symlink to it or absent, and
    any real agent doc found is merge input with a write-once backup:
@@ -115,7 +127,10 @@ elicit requirements interactively (step 2).
 Everything this command produced is already on disk — verify it: list the files written,
 re-read `docs/phases/PHASES.md` to confirm the table parses (every row has id, goal,
 depends, acceptance, status), and confirm `CLAUDE.md` is under 150 lines
-(`wc -l CLAUDE.md`). Then offer the operator a single commit of the bootstrap state
+(`wc -l CLAUDE.md`). Also confirm exactly one workflow variant survived step 8 —
+`grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT' CLAUDE.md` must print `0`; a hit means a template
+comment (and probably both variants) is still in the file, which the line count is too
+generous to catch. Then offer the operator a single commit of the bootstrap state
 (commit message: `chore: bootstrap workflow state`). Corporate mode: check
 `CLAUDE.local.md` instead, and skip the commit offer — the workflow state is
 deliberately invisible to git.

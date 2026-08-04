@@ -15,16 +15,30 @@ REG="$HOME/.claude-belay/installs"
 ver="$(git -C "$PKG" rev-parse --short HEAD 2>/dev/null)" || exit 0
 
 report=""
+unknown=""
 while IFS= read -r p; do
   [ -n "$p" ] || continue
   stamp="$p/.claude/workflow/belay-version"
   # Moved, deleted or uninstalled: skipped silently, the registry is not pruned.
   [ -f "$stamp" ] || continue
   installed="$(cut -d' ' -f2 <"$stamp")"
-  [ "$installed" = "$ver" ] || report+="  $p (belay $installed -> $ver)"$'\n'
+  if [ "$installed" = unknown ]; then
+    # Installed from a package copy with no git HEAD (tarball, export). It can
+    # never equal $ver, so reporting it as behind would nag on every session
+    # forever. Say once that it is uncomparable, which is the actual situation.
+    unknown+="  $p"$'\n'
+  elif [ "$installed" != "$ver" ]; then
+    report+="  $p (belay $installed -> $ver)"$'\n'
+  fi
 done <"$REG"
 
-[ -n "$report" ] || exit 0
-echo "belay: installs behind $ver:"
-printf '%s' "$report"
-echo "Re-run ./install.sh <path> in each, repeating the flags it was installed with (--cursor / --corporate)."
+if [ -n "$report" ]; then
+  echo "belay: installs behind $ver:"
+  printf '%s' "$report"
+  echo "Re-run ./install.sh <path> in each, repeating the flags it was installed with (--cursor / --corporate)."
+fi
+if [ -n "$unknown" ]; then
+  echo "belay: version unknown (installed from a package copy with no git history) — cannot tell if these are current:"
+  printf '%s' "$unknown"
+  echo "Re-run ./install.sh <path> from this repo to stamp a real version."
+fi

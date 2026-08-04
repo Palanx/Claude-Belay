@@ -19,7 +19,13 @@ hook_init
 RULES="$ROOT/.claude/workflow/boundaries.rules"
 [ -f "$RULES" ] || exit 0
 
-FILE="$(json_get .tool_input.file_path)" || exit 0
+# No jq/python3 — same fail-closed stance as the other gates: say it reached
+# Claude, don't exit 0 as if the layering had been checked (P7). Note this is
+# only reached when boundaries.rules exists, i.e. the project wants the check.
+FILE="$(json_get .tool_input.file_path)" || {
+  echo "BOUNDARY CHECK DID NOT RUN: no jq or python3 on PATH to read the hook input, so the file you just edited was NOT checked against boundaries.rules. Install jq or python3." >&2
+  exit 2
+}
 [ -n "$FILE" ] || FILE="$(json_get .file_path)"   # Cursor payload shape (via cursor-adapter.sh)
 [ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 case "$FILE" in

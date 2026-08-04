@@ -21,6 +21,7 @@ After this command the project is in the same state a bootstrapped project would
 | no `docs/adoption-report.md` | fresh run — start at step 1 |
 | `<!-- belay-adoption: in-progress -->` | **resume** — see below |
 | `<!-- belay-adoption: complete -->`, or the file exists with no marker (adopted by an older version) | already adopted — stop, the operator probably wants `/refresh-index` |
+| already adopted **and** the operator explicitly asks to re-adopt (usually sent here by `/refresh-index` after a refactor big enough that the recorded architecture no longer matches) | **re-adopt as an update** — see below |
 
 **Reads:** the codebase (via `git ls-files`, manifests, configs, existing docs/READMEs), `docs/templates/*`, `docs/adoption-report.md` (when resuming).
 **Writes:** `.claude/workflow/toolchain.json`, `.claude/workflow/boundaries.rules`, `docs/constraints.md`, `docs/adr/0001-*.md` … (reconstructed), `docs/adoption-report.md`, `docs/phases/PHASES.md` (empty table), `docs/index/`, `CLAUDE.md`.
@@ -46,6 +47,33 @@ you resumed from before doing anything else.
 Running out of context or quota mid-run is expected, not a failure: the log is current
 after every step, so stopping cleanly and telling the operator to re-run
 `/adopt-project` in a fresh session is the correct exit.
+
+## Re-adopting an already-adopted project
+
+`/refresh-index` sends work here when the index diff shows a refactor big enough that
+`docs/constraints.md` and `boundaries.rules` may describe the old architecture. This is an
+**update, not a fresh adoption** — the difference is what you are allowed to overwrite:
+
+- **Never rewrite** an ADR with status `accepted`, or a constraint the operator confirmed.
+  Those are decisions, and a decision is only replaced by a superseding ADR (step 5's rule,
+  applied to yourself). A `reconstructed` ADR that the code now contradicts is *also* not
+  edited: it becomes a line in Decisions needed.
+- **Do re-derive** what is observation rather than decision: the toolchain (step 1), the
+  index and the de facto layering (step 2), and the conventions of modules whose files
+  actually changed (step 4 — only those; a module the refactor did not touch is still
+  surveyed).
+- **Append, never replace**, in the report. Reset the marker to `in-progress`, say in one
+  line that this is a re-adoption and what triggered it, and add a dated
+  `## Re-adoption <YYYY-MM-DD>` heading under which the new contradictions and decisions
+  land. The original adoption's findings stay where they are — the operator answered some of
+  them, and deleting the question loses the answer's context.
+- Where the new survey contradicts a written constraint, that is a **contradiction to
+  report**, not a correction to make. The code wins over the docs eventually, but which one
+  moves is the operator's call, and doing it silently would rewrite rules other sessions are
+  being judged by.
+
+Everything else — the step order, the per-module write-and-move-on discipline, the resume
+behaviour — is unchanged.
 
 ## Steps
 
@@ -86,7 +114,7 @@ after every step, so stopping cleanly and telling the operator to re-run
    *de facto* layering: which directories act as entry points, which as domain/services,
    which as infrastructure. Name the layers after what the directories are actually
    called, not textbook names. Write `docs/constraints.md` now, from
-   `docs/templates/constraints.md`, with §Layering filled — the rest of its sections
+   `docs/templates/constraints.md`, with `§Layering` filled — the rest of its sections
    stay as template placeholders until step 8. Fill step 4's `pending:` list in the log
    with the module names from the index.
 
@@ -150,8 +178,16 @@ after every step, so stopping cleanly and telling the operator to re-run
    several sessions duplicate and contradict. Merge duplicates, drop what a later step
    resolved.
 
-8. **Constraints + phase table.** Finish `docs/constraints.md` — §Layering (step 2) and
-   §Observed conventions (step 4) are already there; fill the remaining sections
+   **What this step does not do: invent requirements.** `docs/product/requirements.md` is
+   `/bootstrap-project`'s output, and adoption never writes one — code shows you *what* a
+   system does, never *why it was wanted*, and a reconstructed capability list would be a
+   guess wearing an id. If the project's purpose is written down nowhere, say so here and
+   name the fix: the operator writes it from `docs/templates/requirements.md`, once, by
+   hand. Nothing in the pipeline requires it (`/plan-feature` reads it only if present),
+   but without it a feature can never be checked against a stated non-goal.
+
+8. **Constraints + phase table.** Finish `docs/constraints.md` — `§Layering` (step 2) and
+   `§Observed conventions` (step 4) are already there; fill the remaining sections
    (Invariants, Error handling, Testing) and remove any leftover template placeholder.
    Write `docs/phases/PHASES.md` from the template with an empty phase table — phases
    come from `/plan-feature`.
@@ -174,6 +210,18 @@ after every step, so stopping cleanly and telling the operator to re-run
    Nothing to back up is a success, not a failure — the block exits 0 either way.
 
    Then copy `docs/templates/CLAUDE.adopted.md` to `CLAUDE.md` and fill the placeholders.
+
+   **Pick the workflow variant.** The template ships both the pipeline sections and a
+   commented LIGHTWEIGHT pair. Ask the operator once, in one sentence — will they hand whole
+   features to the agent (pipeline), or keep driving the repo themselves and use Claude for
+   advice, planning and small changes (lightweight)? Write the matching pair, delete the
+   other with its comment markers, and for lightweight also drop the phase rows from the
+   pointer table. Adopted repos are frequently the lightweight case and corporate installs
+   almost always are, so if nobody answers, look at what you just surveyed: an active repo
+   with many hands is lightweight, a repo the operator owns alone can take the pipeline. Say
+   which you chose and why. Never ship both — a session that reads a mandate the operator
+   opted out of will follow it.
+
    Whatever real files existed — `CLAUDE.md`, `AGENTS.md`, or both — are all merge input:
    keep the project-specific rules that survive the P1 test ("true in every session?"),
    move the rest into `docs/constraints.md`, add the pointer table, and state a rule that
@@ -201,7 +249,10 @@ after every step, so stopping cleanly and telling the operator to re-run
 
 Verify the written state: `docs/adoption-report.md`, `docs/constraints.md`,
 `docs/phases/PHASES.md`, `CLAUDE.md` (< 150 lines), `.claude/workflow/toolchain.json`,
-`.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Only once that
+`.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Confirm exactly
+one workflow variant survived step 9 — `grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT' CLAUDE.md`
+must print `0`; a hit means a template comment (and probably both variants) is still there,
+which the line count is too generous to catch. Only once that
 passes, flip the log's marker to `<!-- belay-adoption: complete -->` — the marker means
 "verified", not "the steps ran", and it is what stops the next `/adopt-project` from
 re-adopting. Print the

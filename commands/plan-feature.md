@@ -14,8 +14,9 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
 **Preconditions:**
 - Project state exists: `docs/constraints.md` and `docs/phases/PHASES.md` present. If not, stop and name the missing entry point (`/bootstrap-project` or `/adopt-project`).
 - No phase for a *different* feature is `in-progress` (check the PHASES.md table). If one is, warn the operator — interleaving features is allowed but must be their explicit call.
+- If you were sent here to re-cut an existing feature's phases rather than to plan a new feature, skip to "Re-cutting a phase whose premise died" below; steps 1–5 still apply, step 6 does not.
 
-**Reads:** `CLAUDE.md`, `docs/constraints.md`, `docs/adr/` (titles + status lines of all; full text of any ADR the feature might touch), `docs/index/_overview.md` (plus the specific module sections the feature will touch), `docs/phases/PHASES.md`.
+**Reads:** `CLAUDE.md`, `docs/constraints.md`, `docs/adr/` (titles + status lines of all; full text of any ADR the feature might touch), `docs/index/_overview.md` (plus the specific module sections the feature will touch), `docs/phases/PHASES.md`, and `docs/product/requirements.md` **if present** (bootstrapped projects have one; adopted projects do not — its absence is normal, not a precondition failure).
 **Writes:** `docs/phases/PHASES.md` (appended feature section + rows).
 
 ## Steps
@@ -40,7 +41,11 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    `claude -p`), take the "too vague" failure mode below — never invent the answers.
 
 3. **Conflict detection.** Read every ADR whose topic the feature touches, plus the
-   constraints. If the feature contradicts a recorded decision (e.g. it wants an event
+   constraints, plus `docs/product/requirements.md` where it exists. Requirements are
+   checked in both directions: a feature that serves a stated capability cites its id in the
+   rows it produces (`R4`), and a feature that lands on a recorded **non-goal** is a conflict
+   like any other — the non-goals section is not decoration, it is the answer to an interview
+   somebody already ran. If the feature contradicts a recorded decision (e.g. it wants an event
    queue and ADR-0003 says "no async infrastructure"), STOP and surface the conflict:
    quote the ADR, state the contradiction, and give the operator the two options —
    change the feature, or write a superseding ADR first. That ADR is a *new* file in
@@ -48,6 +53,12 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
    ADR it replaces gets status `superseded` with a pointer to it, never an edit in place —
    the old rationale is the record of why the project used to think otherwise. Never plan
    around a recorded decision silently; that is how ADRs die.
+
+   A **non-goal** conflict resolves differently: non-goals are not ADRs, so there is nothing
+   to supersede. The operator either drops the feature or strikes the non-goal from
+   `docs/product/requirements.md` — an amendment that template reserves for operator
+   decision, so it is theirs to make, not yours. Either way it happens before any row is
+   written, and you say which one they chose.
 
 4. **Locate the change.** From the index, list the modules the feature touches and the
    dependency edges between them. This tells you the phase *order*: a phase can only
@@ -70,6 +81,29 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
      naming phase ids (`-` for none), a coarse acceptance criterion (one sentence; it
      becomes executable at expansion), status `pending`. Dependencies are edges, not an
      ordering — two phases with no edge between them are explicitly parallelizable.
+
+## Re-cutting a phase whose premise died
+
+`/expand-phase`, `/implement-phase` and `/validate-phase` all have a path that ends "that
+is a re-plan, not an implementation detail" — a dependency's deviation invalidated a later
+phase's goal, or three failed validations proved the cut itself was wrong. This is where
+those land, and the rule is the ADR rule: **supersede, never edit.**
+
+1. The wrong row keeps its id and gets status `superseded by <new-ids>`. Do not edit its
+   goal, do not delete it, do not renumber anything — it is the record of why the plan used
+   to look like that, and its phase directory (spec + notes) stays on disk as the evidence
+   of what was learned.
+2. Cut the replacement phases from what is now known — steps 4 and 5 above, unchanged —
+   and append them as new ids with status `pending`. Each one's goal line names the id it
+   replaces.
+3. Any row that listed the superseded id in `depends` now names the replacements instead.
+   That edit is allowed and mandatory: a `depends` pointing at a superseded row can never
+   be satisfied, since nothing will ever mark it `done`.
+4. Say in your output what was superseded and why, in one line. The operator asked for a
+   feature, not a re-plan, so the re-plan has to be visible.
+
+No interview here unless the scope edge itself moved: the feature's blurb already
+converged. If it *did* move, this is a new feature section, not a re-cut.
 
 ## Mandatory final step (P6)
 

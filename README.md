@@ -33,7 +33,7 @@ those failures.
 | P5 | Phase closure test | `CLAUDE.md` + phase dir must suffice; checked in `/validate-phase` |
 | P6 | Filesystem is the only durable channel | every command ends by writing notes/status to disk |
 | P7 | Detect, don't assume, the toolchain | `detect-toolchain.sh` writes `toolchain.json`; gaps are loud |
-| P8 | One pipeline, two entry points | `/bootstrap-project` and `/adopt-project` converge on identical state |
+| P8 | One pipeline, two entry points | `/bootstrap-project` and `/adopt-project` converge on the same *pipeline* state — every command downstream reads the same files either way (the two differ only in what only one of them can know: requirements vs an adoption report) |
 
 ## The pipeline
 
@@ -167,8 +167,15 @@ homonymous command, a pre-existing `settings.local.json`), installs with
 `--corporate --cursor`, and asserts the no-touch guarantees, path rewriting, idempotence,
 both mode guards, tracked-file skips, orphan reaping, the created-vs-merged manifest
 marking, agent-doc canonicalization, the install registry, plus a normal-mode regression.
-Despite the name it also covers the stack-agnostic pieces — the index generator (paths
-with spaces, source-free repos) and toolchain gap detection.
+Despite the name it covers the whole package: the index generator (paths with spaces,
+source-free repos), toolchain gap detection, and the edit gates (a formatter that rewrites
+the file must say so; both gates must fail closed with no JSON parser).
+
+Three asserts are **documentation consistency** rather than behaviour — the status
+vocabulary must match across the files that define it, every `§Section` a command or
+template points at must exist in `constraints.md`, and both entry commands must handle the
+`CLAUDE.md` workflow variants. That class of bug ("two files say different things") is what
+an audit finds and no behavioural test can, so it fails the suite instead.
 
 ### Cursor CLI / IDE
 
@@ -225,6 +232,14 @@ All state (`.claude/workflow/`, `docs/`) is shared — sessions from either agen
 converge on the same files (P6/P8). Cursor's hooks are beta; if an event name or
 payload field changes upstream, only `cursor-adapter.sh` needs updating.
 
+**If Cursor hooks stop firing at all**, check the command path first, before the payload:
+`.cursor/hooks.json` names the adapter relatively (`./.claude/hooks/cursor-adapter.sh`),
+Cursor's documented form, resolved against the project root by Cursor itself. The adapter
+derives the project root from its own location rather than from `$PWD`, so it survives
+being *executed* from elsewhere — but nothing it does can compensate for a command that was
+never resolved. Symptom: no hook output anywhere, in contrast to a payload change, which
+shows up as hooks running but seeing no file path.
+
 ### Updating an installed project
 
 ```
@@ -236,13 +251,17 @@ Re-installing is the upgrade: commands, hooks, templates, the index script and b
 hook wiring are replaced with the current package; project state (`CLAUDE.md`, `docs/`,
 `boundaries.rules`, `toolchain.json`) is untouched.
 
-Corporate installs additionally *remove* package-owned files the package no longer ships:
-the previous exclude block is the record of what belay installed, so a command or hook
-deleted upstream is deleted from the target too. It has to be — an orphan file falls out
-of the regenerated manifest, and because `.claude/` holds no tracked files git collapses
-that to `?? .claude/`, exposing the whole directory and failing the no-touch check. Normal
-installs leave orphans in place (they are harmless there: a deleted hook's wiring is
-dropped, so nothing runs it).
+Re-installing also *removes* package-owned files the package no longer ships, in both
+modes. `install.sh` records every path it writes in `.claude/workflow/installed` and
+compares it against the previous run's copy, so a command or hook deleted upstream is
+deleted from the target — never anything the repo tracks, and never `.cursor/` files when
+the re-install omitted `--cursor`. A dropped *hook* was already harmless (its wiring is
+dropped, so nothing ran it); a dropped *command* was not — it stayed a live slash command
+forever. In corporate mode the same reap keeps the uninstall manifest honest and stops an
+orphan un-hiding the directory it lives in.
+
+That file doubles as the **uninstall list for a normal install**: delete the paths it names,
+then `.claude/workflow/` and belay's hook entries in `.claude/settings.json`.
 
 Knowing *which* projects are behind is the package's job, not the project's. `install.sh`
 records every target in `~/.claude-belay/installs`, and opening a Claude session in this
@@ -410,6 +429,13 @@ cd /path/to/repo && claude
 > /adopt-project                  # (or /bootstrap-project on a new repo) — builds index, constraints, toolchain
 ```
 
+Say so when the entry command asks which way you'll work: it writes the **lightweight
+variant** of `CLAUDE.md` instead of the pipeline one — same file, same pointer table, minus
+the phase sections. That matters because `CLAUDE.md` is loaded every session, so a
+hand-driven project carrying pipeline instructions tells every session to run a workflow
+you opted out of. Switching later is editing that one section; the pipeline stays installed
+regardless.
+
 Then:
 
 **Use:** the hooks (they gate a 3-line edit the same as a phase, and the commit guard
@@ -434,7 +460,7 @@ index without the pipeline is the common corporate case.
 
 | Hook | Event (verified against docs) | What it does |
 |---|---|---|
-| `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | format + lint + file-scoped typecheck on the touched file; failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
+| `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | runs whatever `toolchain.json` has for the touched file's extension — format, lint, and a file-scoped typecheck *where one exists* (several stacks have none: Node/TS typechecks project-wide only, Unity and Unreal not at all — `gaps` names each). Failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
 | `boundary-check.sh` | `PostToolUse`, matcher `Edit\|Write` | grep-heuristic check of `boundaries.rules` deny edges on the touched file |
 | `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit**. Corporate mode: also blocks `git clean -x/-X` (would erase the git-excluded belay state) and blocks commits while any belay state path shows in `git status` |
 

@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
-# Smoke test for install.sh --corporate, plus a normal-mode regression.
-# Builds a hostile scratch repo (tracked CLAUDE.md, tracked .claude/settings.json
-# and docs/, a tracked homonymous command, a pre-existing settings.local.json),
-# installs, and asserts every corporate guarantee. Run from anywhere:
+# The package's smoke suite. Named for its origin (install.sh --corporate) but it
+# now covers the whole package: it builds a hostile scratch repo (tracked
+# CLAUDE.md, tracked .claude/settings.json and docs/, a tracked homonymous
+# command, a pre-existing settings.local.json), installs, and asserts every
+# corporate guarantee — plus normal-mode regressions, agent-doc canonicalization,
+# the install registry, the index generator, toolchain gap detection, edit-gate
+# behaviour, and documentation consistency. Run from anywhere:
 #   tests/corporate-smoke.sh
+#
+# Every assert here should be able to fail: when adding one, check it fails
+# against the commit before the fix. Three consistency asserts guard the
+# "two files say different things" class that no behavioural test can see.
 set -u
 PKG="$(cd "$(dirname "$0")/.." && pwd)"
 # Isolate from the user's git config — a global gitignore covering e.g.
@@ -400,6 +407,138 @@ check "node without tsconfig.json reports a typecheck gap" \
 check "typecheck absent from commands (nothing invented)" \
   bash -c 'test "$(jq -r ".commands.typecheck // \"absent\"" "$1/.claude/workflow/toolchain.json")" = absent' \
   _ "$L"
+
+# ========================= edit-gate behaviour ===============================
+# Formatters all write in place, so a successful format leaves the file on disk
+# different from what was just written — silently, until a later edit fails to
+# match. And the edit gates used to exit 0 with no JSON parser, i.e. not run at
+# all, while the commit gate fails closed on the same condition.
+echo "== edit gates =="
+M="$TMP/gates"
+mkdir -p "$M/.claude/workflow"
+gitq "$M" init -q
+printf 'let x = 1\n' >"$M/a.js"
+tcjson() { printf '{ "stacks": ["fake"], "commands": {}, "file_commands": { "js": { "format": %s, "lint": %s } }, "exempt": [], "gaps": [] }\n' "$1" "$2" >"$M/.claude/workflow/toolchain.json"; }
+gate() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/a.js"}}' "$M" \
+         | CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" 2>"$TMP/gate.err"; }
+
+tcjson '"true"' '"true"'
+gate && ok "no-op formatter stays silent (exit 0)" || bad "no-op formatter stays silent (exit 0)"
+check "no-op formatter prints nothing" test ! -s "$TMP/gate.err"
+
+tcjson '"echo formatted >>"' '"true"'   # appends: rewrites the file, lint passes
+gate && bad "in-place reformat is reported" || ok "in-place reformat is reported"
+check "reformat message names the file and says re-read" \
+  bash -c 'grep -q "REFORMATTED ON DISK" "$1" && grep -q "Re-read it" "$1"' _ "$TMP/gate.err"
+
+tcjson '"echo formatted >>"' '"false"'  # reformat AND a lint failure: one report, not two
+gate && bad "lint failure still reported when the file was also reformatted" \
+     || ok "lint failure still reported when the file was also reformatted"
+check "combined report leads with the gate failure" grep -q 'POST-EDIT GATE FAILED' "$TMP/gate.err"
+check "combined report also mentions the reformat" grep -q 'formatter also rewrote' "$TMP/gate.err"
+
+# No jq and no python3: the gates must say they did not run, not exit 0.
+NOJSON="$TMP/nojson"
+mkdir -p "$NOJSON"
+for t in bash dirname basename cat grep sed awk cut shasum sha1sum cksum git printf rm ls mktemp; do
+  b="$(command -v $t 2>/dev/null)" && ln -sf "$b" "$NOJSON/$t"
+done
+check "sandbox PATH really has no jq/python3 but does have dirname" \
+  bash -c 'PATH="$1"; ! command -v jq >/dev/null && ! command -v python3 >/dev/null && command -v dirname >/dev/null' _ "$NOJSON"
+printf 'layer a src/\nlayer b lib/\ndeny a -> b\n' >"$M/.claude/workflow/boundaries.rules"
+for h in post-edit-gate boundary-check; do
+  if printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/a.js"}}' "$M" \
+     | env PATH="$NOJSON" CLAUDE_PROJECT_DIR="$M" bash "$PKG/hooks/$h.sh" >/dev/null 2>"$TMP/$h.err"; then
+    bad "$h fails closed with no JSON parser"
+  else
+    grep -q 'DID NOT RUN' "$TMP/$h.err" && ok "$h fails closed with no JSON parser" \
+      || { bad "$h fails closed: wrong message"; sed 's/^/    /' "$TMP/$h.err"; }
+  fi
+done
+
+# ==================== normal-mode orphan reaping =============================
+echo "== normal-mode orphan reaping =="
+N="$TMP/norm-orphan"
+mkdir -p "$N"
+printf 'print("hi")\n' >"$N/main.py"
+gitq "$N" init -q && gitq "$N" add -A && gitq "$N" commit -qm init
+mkdir -p "$TMP/pkgnorm"
+cp -R "$PKG/install.sh" "$PKG/hooks" "$PKG/commands" "$PKG/templates" "$PKG/scripts" "$PKG/settings" "$TMP/pkgnorm/"
+printf '# a command a later release drops\n' >"$TMP/pkgnorm/commands/temp-thing.md"
+"$TMP/pkgnorm/install.sh" "$N" >/dev/null 2>&1
+check "manifest written" test -f "$N/.claude/workflow/installed"
+check "manifest lists a command" grep -qx '.claude/commands/plan-feature.md' "$N/.claude/workflow/installed"
+printf 'the project own command\n' >"$N/.claude/commands/my-own.md"
+"$PKG/install.sh" "$N" >"$TMP/install15.log" 2>&1 \
+  && ok "normal re-install after an upstream deletion exits 0" \
+  || { bad "normal re-install after an upstream deletion exits 0"; sed 's/^/    /' "$TMP/install15.log"; }
+check "normal mode reaps the dropped command" test ! -e "$N/.claude/commands/temp-thing.md"
+check "the project's own command survives the reap" test -f "$N/.claude/commands/my-own.md"
+check "belay's wiring survives the reap" test -f "$N/.claude/settings.json"
+
+# Corporate installs predating the manifest fall back to the old exclude block —
+# which also names files copy_into never wrote and must never delete.
+O="$TMP/corp-fallback"
+mkdir -p "$O"
+printf 'print("hi")\n' >"$O/main.py"
+gitq "$O" init -q && gitq "$O" add -A && gitq "$O" commit -qm init
+OBEFORE="$(gitq "$O" status --porcelain)"
+"$TMP/pkgnorm/install.sh" "$O" --corporate >/dev/null 2>&1
+rm -f "$O/.claude/workflow/installed"          # as an older belay would have left it
+"$PKG/install.sh" "$O" --corporate >"$TMP/install16.log" 2>&1 \
+  && ok "corporate re-install with no manifest exits 0" \
+  || { bad "corporate re-install with no manifest exits 0"; sed 's/^/    /' "$TMP/install16.log"; }
+check "fallback reaps the dropped command" test ! -e "$O/.claude/commands/temp-thing.md"
+check "fallback never deletes the hook wiring" test -f "$O/.claude/settings.local.json"
+check "fallback leaves the wiring intact" grep -q 'post-edit-gate.sh' "$O/.claude/settings.local.json"
+ONEW="$(comm -13 <(printf '%s\n' "$OBEFORE" | sort) <(gitq "$O" status --porcelain | sort) | grep -v '^$' || true)"
+check "git status clean after the fallback reap" test -z "$ONEW"
+
+# ======================= stale report: unknown stamp =========================
+# `belay unknown` can never equal HEAD, so reporting it as behind nagged forever.
+printf 'belay unknown (installed 2020-01-01)\n' >"$N/.claude/workflow/belay-version"
+"$PKG/scripts/installs-stale.sh" >"$TMP/stale.log" 2>&1 || true
+check "unknown stamp reported as uncomparable, not behind" \
+  bash -c 'grep -q "version unknown" "$1" && ! grep -q "installs behind.*-> " "$1"' _ "$TMP/stale.log"
+
+# ===================== documentation consistency =============================
+# This whole class of bug is "two files say different things", so it fails here
+# rather than in the next audit.
+echo "== documentation consistency =="
+VOCAB='pending | expanded | in-progress | blocked | superseded by <ids> | done'
+check "status vocabulary identical in both CLAUDE templates" \
+  bash -c 'test "$(grep -lF "$2" "$1/templates/CLAUDE.bootstrap.md" "$1/templates/CLAUDE.adopted.md" | wc -l | tr -d " ")" = 2' \
+  _ "$PKG" "$VOCAB"
+for s in pending expanded in-progress blocked "superseded by" done; do
+  check "PHASES.md template defines status '$s'" grep -qF "$s" "$PKG/templates/PHASES.md"
+done
+# Every §Section referenced anywhere in the shipped commands and templates must
+# exist in constraints.md — the file all of them mean by §. This is #10's class:
+# /expand-phase pointed at a "repair protocol in docs/constraints.md" that was
+# never in the template. Assert the reference set is non-empty first, or the loop
+# silently validates nothing and looks like coverage.
+refs="$(grep -rhoE '§[A-Za-z][A-Za-z]*( [a-z][A-Za-z]*)*' "$PKG"/commands/*.md "$PKG"/templates/*.md \
+        | sed 's/^§//;s/ *$//' | sort -u)"
+check "there are §section references to validate" test -n "$refs"
+missing=""
+while IFS= read -r sec; do
+  [ -n "$sec" ] || continue
+  grep -qiE "^#+ +$sec\$" "$PKG/templates/constraints.md" || missing="$missing '$sec'"
+done <<<"$refs"
+check "every §section referenced by a command or template exists in constraints.md" test -z "$missing"
+[ -z "$missing" ] || echo "    missing sections:$missing"
+# requirements.md is bootstrap-only, so every reference must tolerate its absence.
+check "plan-feature guards its requirements.md read with 'if present'" \
+  grep -q 'requirements.md` \*\*if present\*\*' "$PKG/commands/plan-feature.md"
+check "adopt-project states it never writes requirements.md" \
+  grep -q 'adoption never writes one' "$PKG/commands/adopt-project.md"
+# Both CLAUDE templates ship both workflow variants; the entry commands must both
+# pick one, and must both assert no template marker survives.
+for c in bootstrap-project adopt-project; do
+  check "/$c picks a workflow variant" grep -q 'LIGHTWEIGHT' "$PKG/commands/$c.md"
+  check "/$c asserts no template marker survives" \
+    grep -q "grep -c 'LIGHTWEIGHT" "$PKG/commands/$c.md"
+done
 
 echo ""
 echo "corporate-smoke: $((CHECKS-FAILS))/$CHECKS passed"

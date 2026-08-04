@@ -151,6 +151,14 @@ from the adopted scaffold — layering summary filled in, pointer table verbatim
 The operator answers D1 ("migrate keys.js — no reason it's special") and installs
 gitleaks. D1's answer becomes a debt note picked up in the next planning pass.
 
+They also do the one thing adoption cannot do for them: write
+`docs/product/requirements.md` by hand from the template (content:
+`docs/templates/requirements.example.md`). Adoption reconstructs decisions from code
+because code contains them; it never reconstructs requirements, because code cannot tell
+you what somebody wanted. That file is why the rows below can cite `R4` and why
+`/plan-feature` can catch a feature that lands on a recorded non-goal — an adopted project
+that skips it still works, it just loses that check.
+
 ## 2. `/plan-feature per-API-key rate limiting so one abusive consumer can't degrade the API for others`
 
 The command checks index freshness, then reads constraints + ADR titles and pulls the
