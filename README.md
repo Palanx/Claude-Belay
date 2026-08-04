@@ -133,12 +133,18 @@ workflow files either — git containment and index hygiene are the same mechani
 
 **Uninstall:** open the `# >>> claude-belay` block in `.git/info/exclude` — it lists
 every installed path. Delete those paths, then the block. The company repo never
-knew.
+knew. One exception, marked in the block itself: a path preceded by `# merged:`
+existed before belay and was only merged into (a `.claude/settings.local.json` or
+`.cursor/hooks.json` you already had) — leave those in place. Belay decides
+created-vs-merged on the first install and carries the verdict forward in the
+manifest, so a re-install never mistakes its own file for yours.
 
-Re-running `install.sh` without `--corporate` on a corporate install is blocked (it
-would write `docs/` into the repo). `CLAUDE.local.md` is deprecated upstream but still
-auto-loaded; if it ever stops loading, import the `.belay/docs/` state from your
-user-level memory file instead.
+**Both mode switches are refused.** Re-running `install.sh` without `--corporate` on a
+corporate install would write `docs/` into the repo; running it *with* `--corporate` on a
+normal install would leave two state trees and flip the mode marker while failing its own
+no-touch check. Either way the install stops before writing, and names the manual route.
+`CLAUDE.local.md` is deprecated upstream but still auto-loaded; if it ever stops loading,
+import the `.belay/docs/` state from your user-level memory file instead.
 
 **Verify the pointer docs actually load — once per environment.** After the first
 `/adopt-project`, run `/context` in Claude Code and confirm `CLAUDE.local.md` is listed
@@ -218,6 +224,14 @@ cd <this repo> && git pull
 Re-installing is the upgrade: commands, hooks, templates, the index script and belay's
 hook wiring are replaced with the current package; project state (`CLAUDE.md`, `docs/`,
 `boundaries.rules`, `toolchain.json`) is untouched.
+
+Corporate installs additionally *remove* package-owned files the package no longer ships:
+the previous exclude block is the record of what belay installed, so a command or hook
+deleted upstream is deleted from the target too. It has to be — an orphan file falls out
+of the regenerated manifest, and because `.claude/` holds no tracked files git collapses
+that to `?? .claude/`, exposing the whole directory and failing the no-touch check. Normal
+installs leave orphans in place (they are harmless there: a deleted hook's wiring is
+dropped, so nothing runs it).
 
 Knowing *which* projects are behind is the package's job, not the project's. `install.sh`
 records every target in `~/.claude-belay/installs`, and opening a Claude session in this
