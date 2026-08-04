@@ -9,6 +9,18 @@
 #                           so the fix-it-same-turn loop of Claude Code is weaker
 #                           here — /validate-phase remains the hard gate)
 #   beforeShellExecution -> pre-commit-security.sh (exit 2 => permission deny)
+#
+# belay-debt: this whole adapter is verified by inspection only — never run with
+# Cursor actually installed, so the event names, the payload field names, the
+# permission protocol and the relative command path in .cursor/hooks.json are all
+# read off the docs rather than observed. Nothing in tests/corporate-smoke.sh can
+# cover it; the suite only asserts the files land. Test it by installing with
+# --cursor into a scratch repo, opening it in Cursor, then: (1) edit a source file
+# with a lint error — the post-edit gate should run (its output may go nowhere,
+# which is expected, see above); (2) stage a file containing AKIAIOSFODNN7EXAMPLE
+# and have the agent run `git commit` — this must be DENIED. If (2) passes
+# silently, the gate never ran: suspect the relative command path first (see the
+# cwd note below), then the payload field names in json_get calls.
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
 # Adapter lives at <root>/.claude/hooks/, so the root is two levels up. Two
