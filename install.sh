@@ -40,6 +40,22 @@ tracked() { git -C "$TARGET" ls-files --error-unmatch "$1" >/dev/null 2>&1; }
 if [ "$CORPORATE" -eq 1 ]; then
   git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1 \
     || { echo "install.sh: --corporate requires a git repo (.git/info/exclude is the containment mechanism)" >&2; exit 1; }
+  # Both mode switches are refused, not just corporate -> normal (below). Going
+  # normal -> corporate would leave two state trees (docs/ and .belay/) and,
+  # because a committed .claude/workflow/ is tracked and so omitted from the
+  # exclude manifest, the corporate marker itself would show in git status —
+  # failing the no-touch check while already having flipped the mode.
+  if [ ! -f "$TARGET/.claude/workflow/corporate" ] && [ -f "$TARGET/docs/templates/spec.md" ]; then
+    echo "install.sh: $TARGET already has a normal (non-corporate) belay install" >&2
+    echo "  Switching modes in place is not supported: docs/ is tracked by the repo, so" >&2
+    echo "  corporate mode could neither relocate nor hide it, and the install would flip" >&2
+    echo "  the mode marker while failing its own no-touch check." >&2
+    echo "  To move this repo to corporate mode, uninstall the normal install first" >&2
+    echo "  (delete docs/, scripts/build-index.sh, .claude/{commands,hooks,workflow} and" >&2
+    echo "  belay's hook entries in .claude/settings.json), commit that, then re-run" >&2
+    echo "  install.sh --corporate." >&2
+    exit 1
+  fi
   DOCS=".belay/docs" SCRIPTS=".belay/scripts"
   SET="$TARGET/.claude/settings.local.json"
   STATUS_BEFORE="$(git -C "$TARGET" status --porcelain)"
@@ -111,10 +127,9 @@ copy_into "$DOCS/templates" "$PKG"/templates/*
 # package commit whose behavior they observed.
 ver="$(git -C "$PKG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 printf 'belay %s (installed %s)\n' "$ver" "$(date +%F)" >"$TARGET/.claude/workflow/belay-version"
-if [ "$CORPORATE" -eq 1 ]; then
-  # Marker the entry commands check: write CLAUDE.local.md, never CLAUDE.md.
-  : >"$TARGET/.claude/workflow/corporate"
-fi
+# The corporate marker is stamped at the very END of this script, once every
+# check has passed: it flips the target into a mode whose plain re-install is
+# refused, so a failed install must not leave it behind.
 
 # Install registry, same $HOME channel as /belay-feedback: outside the repo, so
 # no git footprint and corporate-safe. scripts/installs-stale.sh (package repo
@@ -178,12 +193,18 @@ unwired() { # unwired <settings file> <package wiring file> — names package ho
 
 SETREL="${SET#"$TARGET"/}"
 SET_SKIPPED=0
+# SET_CREATED distinguishes "belay made this file" from "belay merged into the
+# operator's file" — the uninstall manifest must not tell anyone to delete the
+# latter. Only meaningful on a first install; re-installs carry the earlier
+# verdict forward through the manifest (see wiring_owner below).
+SET_CREATED=0
 if [ "$CORPORATE" -eq 1 ] && [ -f "$SET" ] && tracked "$SETREL"; then
   SET_SKIPPED=1
   echo "  WARNING: $SETREL is tracked by the target repo — left untouched; merge by hand:"
   echo "           append the hook entries from $PKG/settings/settings.json"
 elif [ ! -f "$SET" ]; then
   cp "$PKG/settings/settings.json" "$SET"
+  SET_CREATED=1
   echo "  created $SETREL (hook wiring)"
 elif command -v jq >/dev/null 2>&1; then
   rewire "$SET" "$PKG/settings/settings.json" "$SETREL"
@@ -200,12 +221,14 @@ if [ "$CURSOR" -eq 1 ]; then
   mkdir -p "$TARGET/.cursor/commands"
   copy_into .cursor/commands "$PKG"/commands/*.md
   CHJ="$TARGET/.cursor/hooks.json"
+  CHJ_CREATED=0
   if [ "$CORPORATE" -eq 1 ] && [ -f "$CHJ" ] && tracked ".cursor/hooks.json"; then
     # Cursor has no local-settings variant; skipping is the only clean option.
     echo "  WARNING: .cursor/hooks.json is tracked by the target repo — left untouched;"
     echo "           Cursor hooks won't fire until you merge $PKG/settings/hooks.cursor.json by hand"
   elif [ ! -f "$CHJ" ]; then
     cp "$PKG/settings/hooks.cursor.json" "$CHJ"
+    CHJ_CREATED=1
     echo "  created .cursor/hooks.json (cursor-adapter wiring)"
   elif command -v jq >/dev/null 2>&1; then
     rewire "$CHJ" "$PKG/settings/hooks.cursor.json" ".cursor/hooks.json"
@@ -228,6 +251,12 @@ if [ "$CORPORATE" -eq 1 ]; then
   case "$EXC" in /*) ;; *) EXC="$TARGET/$EXC" ;; esac   # relative on normal repos, absolute in worktrees
   mkdir -p "$(dirname "$EXC")"
   [ -f "$EXC" ] || : >"$EXC"
+  # The previous block is the record of what belay installed last time, so read
+  # it before deleting it: paths it lists that this run does not are orphans
+  # (see the reaping step below), and its "# merged:" comments carry the
+  # created-vs-merged verdict forward across re-installs.
+  OLD_BLOCK="$(sed -n '/^# >>> claude-belay/,/^# <<< claude-belay/p' "$EXC")"
+  OLD_PATHS="$(printf '%s\n' "$OLD_BLOCK" | grep '^/' || true)"
   sed -i.belaybak '/^# >>> claude-belay/,/^# <<< claude-belay/d' "$EXC"
   rm -f "$EXC.belaybak"
   emit() { # a tracked path is company-owned (install skipped it): excluding it
@@ -239,23 +268,75 @@ if [ "$CORPORATE" -eq 1 ]; then
       echo "$1"
     fi
   }
-  {
+  emit_wiring() { # emit_wiring <manifest path> <created-by-belay-this-run 0|1>
+    # A wiring file belay merged into is the operator's, and the manifest header
+    # says "delete these paths" — so mark it. The verdict is decided once (was
+    # the file there before belay?) and then read back out of the old block, or
+    # a re-install would see belay's own file already present and call it theirs.
+    local owner=user
+    if [ "$2" -eq 1 ]; then owner=belay
+    elif printf '%s\n' "$OLD_BLOCK" | grep -qxF "# merged: $1"; then owner=user
+    elif printf '%s\n' "$OLD_PATHS" | grep -qxF "$1"; then owner=belay
+    fi
+    [ "$owner" = belay ] || echo "# merged: $1"
+    emit "$1"
+  }
+  NEW_BLOCK="$(
     echo "# >>> claude-belay corporate mode — uninstall manifest: delete these paths, then this block >>>"
+    echo "# Exception: a path preceded by '# merged:' existed before belay and was only"
+    echo "# merged into — leave those in place when uninstalling."
     emit "/.belay/"
     emit "/CLAUDE.local.md"
     emit "/.claude/workflow/"
-    emit "/.claude/settings.local.json"
+    emit_wiring "/.claude/settings.local.json" "$SET_CREATED"
     for f in "$PKG"/commands/*.md;  do emit "/.claude/commands/$(basename "$f")"; done
     for f in "$PKG"/hooks/*.sh;     do emit "/.claude/hooks/$(basename "$f")"; done
     for f in "$PKG"/hooks/lib/*.sh; do emit "/.claude/hooks/lib/$(basename "$f")"; done
     if [ "$CURSOR" -eq 1 ]; then
       for f in "$PKG"/commands/*.md; do emit "/.cursor/commands/$(basename "$f")"; done
-      emit "/.cursor/hooks.json"
+      emit_wiring "/.cursor/hooks.json" "${CHJ_CREATED:-0}"
       emit "/.cursor/rules/belay.mdc"
+    else
+      # A re-install that forgot --cursor leaves the Cursor files on disk (the
+      # reaping step below deliberately spares them), so they must keep being
+      # excluded or containment breaks for a flag the operator merely omitted.
+      printf '%s\n' "$OLD_PATHS" | grep '^/\.cursor/' | while IFS= read -r p; do
+        [ -e "$TARGET$p" ] && emit "$p"
+      done
     fi
     echo "# <<< claude-belay <<<"
-  } >>"$EXC"
+  )"
+  printf '%s\n' "$NEW_BLOCK" >>"$EXC"
   echo "  wrote exclude block to .git/info/exclude (nothing installed will appear in git status)"
+
+  # --- reap orphans -----------------------------------------------------------
+  # A package-owned file the package no longer ships stays on disk and drops out
+  # of the manifest, which un-hides it — and because .claude/ holds no tracked
+  # files, git collapses that to "?? .claude/", exposing the whole directory and
+  # failing the no-touch check below. The old manifest proves those paths were
+  # belay's, so delete them.
+  #
+  # belay-debt: this closes the orphan class only. A stray untracked file that
+  # belay never installed (an agent writing .claude/scratch.txt) still collapses
+  # git status to "?? .claude/". Upgrade path: exclude /.claude/ wholesale —
+  # traded away because it would also hide the company's own untracked files
+  # there from their git status.
+  NEW_PATHS="$(printf '%s\n' "$NEW_BLOCK" | grep '^/' || true)"
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    printf '%s\n' "$NEW_PATHS" | grep -qxF "$p" && continue
+    # Skip .cursor/ entirely unless this run wired Cursor: a re-install that
+    # merely forgot --cursor must not delete the Cursor command copies or the
+    # pointer doc an entry command wrote.
+    case "$p" in /.cursor/*) [ "$CURSOR" -eq 1 ] || continue ;; esac
+    # Regular files only (never the /.belay/ or /.claude/workflow/ directory
+    # entries), and never anything the repo tracks — a company that committed
+    # belay's copy owns it now.
+    [ -f "$TARGET$p" ] || continue
+    tracked "${p#/}" && continue
+    rm -f "$TARGET$p"
+    echo "  removed ${p#/} — no longer shipped by the package (was in the previous manifest)"
+  done <<<"$OLD_PATHS"
 fi
 
 # --- verify -----------------------------------------------------------------
@@ -296,6 +377,14 @@ if [ "$CORPORATE" -eq 1 ]; then
   fi
 fi
 [ $fail -eq 0 ] || exit 1
+
+if [ "$CORPORATE" -eq 1 ]; then
+  # Marker the entry commands check: write CLAUDE.local.md, never CLAUDE.md.
+  # Last write in the script, and deliberately after the no-touch check — it is
+  # covered by the /.claude/workflow/ exclude entry, and a failed install above
+  # must leave the target in whatever mode it was already in.
+  : >"$TARGET/.claude/workflow/corporate"
+fi
 
 echo ""
 echo "Installed. Next, inside a Claude Code session in $TARGET:"

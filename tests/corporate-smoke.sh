@@ -139,6 +139,93 @@ printf '%s' "$warn2" | grep -q 'WARNING: upstream' \
   && bad "collision check: silent when no collision" \
   || ok "collision check: silent when no collision"
 
+# --- uninstall manifest: created vs merged ----------------------------------
+# The header says "delete these paths"; a file belay only merged into must be
+# marked, or the documented uninstall destroys the operator's own settings.
+# $A had an untracked settings.local.json before the install (planted above).
+check "manifest: pre-existing settings.local.json marked '# merged:'" \
+  bash -c 'sed -n "/^# >>> claude-belay/,/^# <<< claude-belay/p" "$1/.git/info/exclude" \
+           | grep -qxF "# merged: /.claude/settings.local.json"' _ "$A"
+
+# --- orphan reaping ----------------------------------------------------------
+# A command deleted upstream stays on disk and falls out of the regenerated
+# manifest; because .claude/ holds no tracked files git collapses that to
+# "?? .claude/", exposing the directory and failing the no-touch check.
+echo "== corporate orphan reaping =="
+F="$TMP/orphan"
+mkdir -p "$F"
+printf 'print("hi")\n' >"$F/main.py"
+gitq "$F" init -q && gitq "$F" add -A && gitq "$F" commit -qm init
+FBEFORE="$(gitq "$F" status --porcelain)"
+mkdir -p "$TMP/pkgorph"
+cp -R "$PKG/install.sh" "$PKG/hooks" "$PKG/commands" "$PKG/templates" "$PKG/scripts" "$PKG/settings" "$TMP/pkgorph/"
+printf '# a command a later release drops\n' >"$TMP/pkgorph/commands/temp-thing.md"
+"$TMP/pkgorph/install.sh" "$F" --corporate >"$TMP/install10.log" 2>&1 \
+  && ok "install from a package with an extra command exits 0" \
+  || { bad "install from a package with an extra command exits 0"; sed 's/^/    /' "$TMP/install10.log"; }
+check "the soon-to-be orphan landed" test -f "$F/.claude/commands/temp-thing.md"
+"$PKG/install.sh" "$F" --corporate >"$TMP/install11.log" 2>&1 \
+  && ok "re-install after an upstream deletion exits 0" \
+  || { bad "re-install after an upstream deletion exits 0"; sed 's/^/    /' "$TMP/install11.log"; }
+check "orphaned command removed" test ! -e "$F/.claude/commands/temp-thing.md"
+check "reaping is reported" grep -q 'removed .claude/commands/temp-thing.md' "$TMP/install11.log"
+FNEW="$(comm -13 <(printf '%s\n' "$FBEFORE" | sort) <(gitq "$F" status --porcelain | sort) | grep -v '^$' || true)"
+check "git status still clean after the reap" test -z "$FNEW"
+check "manifest: belay-created settings.local.json NOT marked merged" \
+  bash -c '! sed -n "/^# >>> claude-belay/,/^# <<< claude-belay/p" "$1/.git/info/exclude" \
+           | grep -qxF "# merged: /.claude/settings.local.json"' _ "$F"
+
+# A company that commits belay's copy owns it: reaping must never touch it.
+"$TMP/pkgorph/install.sh" "$F" --corporate >/dev/null 2>&1
+gitq "$F" add -f .claude/commands/temp-thing.md
+gitq "$F" commit -qm "company adopts the command"
+"$PKG/install.sh" "$F" --corporate >"$TMP/install12.log" 2>&1
+check "a tracked belay-path copy is never reaped" test -f "$F/.claude/commands/temp-thing.md"
+gitq "$F" rm -q -f --cached .claude/commands/temp-thing.md
+gitq "$F" commit -qm "un-adopt"
+rm -f "$F/.claude/commands/temp-thing.md"
+
+# Dropping --cursor on a re-install spares the Cursor files, so the manifest
+# must keep hiding them or containment breaks for a merely-omitted flag.
+G="$TMP/cursor-flag"
+mkdir -p "$G"
+printf 'print("hi")\n' >"$G/main.py"
+gitq "$G" init -q && gitq "$G" add -A && gitq "$G" commit -qm init
+GBEFORE="$(gitq "$G" status --porcelain)"
+"$PKG/install.sh" "$G" --corporate --cursor >/dev/null 2>&1
+mkdir -p "$G/.cursor/rules" && printf 'pointer\n' >"$G/.cursor/rules/belay.mdc"
+"$PKG/install.sh" "$G" --corporate >"$TMP/install13.log" 2>&1 \
+  && ok "re-install without --cursor exits 0" \
+  || { bad "re-install without --cursor exits 0"; sed 's/^/    /' "$TMP/install13.log"; }
+check "cursor commands not reaped when --cursor is omitted" test -f "$G/.cursor/commands/plan-feature.md"
+check "cursor pointer doc not reaped when --cursor is omitted" test -f "$G/.cursor/rules/belay.mdc"
+GNEW="$(comm -13 <(printf '%s\n' "$GBEFORE" | sort) <(gitq "$G" status --porcelain | sort) | grep -v '^$' || true)"
+check "git status clean after dropping --cursor" test -z "$GNEW"
+
+# --- mode switch: normal -> corporate ---------------------------------------
+# Refused before writing anything: docs/ is tracked, so corporate mode can
+# neither relocate nor hide it, and the marker would flip while the no-touch
+# check failed — leaving a repo no install could serve.
+echo "== mode switch guard (normal -> corporate) =="
+H="$TMP/mode-switch"
+mkdir -p "$H"
+printf 'print("hi")\n' >"$H/main.py"
+gitq "$H" init -q && gitq "$H" add -A && gitq "$H" commit -qm init
+"$PKG/install.sh" "$H" >/dev/null 2>&1
+gitq "$H" add -A && gitq "$H" commit -qm "belay state"
+if "$PKG/install.sh" "$H" --corporate >"$TMP/install14.log" 2>&1; then
+  bad "--corporate over a normal install is refused"
+else
+  grep -q 'already has a normal (non-corporate) belay install' "$TMP/install14.log" \
+    && ok "--corporate over a normal install is refused" \
+    || { bad "--corporate over a normal install: wrong error"; sed 's/^/    /' "$TMP/install14.log"; }
+fi
+check "refused switch wrote no corporate marker" test ! -e "$H/.claude/workflow/corporate"
+check "refused switch wrote no .belay/ tree" test ! -e "$H/.belay"
+check "refused switch wrote no exclude block" \
+  bash -c '! grep -q claude-belay "$1/.git/info/exclude" 2>/dev/null' _ "$H"
+check "plain re-install still works after the refusal" "$PKG/install.sh" "$H"
+
 # ============================ normal-mode regression =========================
 echo "== normal mode (regression) =="
 B="$TMP/normal"
@@ -252,6 +339,67 @@ check "stale report silent when every install is current" \
 printf 'belay deadbee (installed 2020-01-01)\n' >"$B/.claude/workflow/belay-version"
 check "stale report names the install left behind" \
   bash -c '"$1/scripts/installs-stale.sh" | grep -q "$2"' _ "$PKG" "$B"
+
+# ============================ index generator ================================
+# Both failure modes produced NO index at all, which is worse than a bad one:
+# /plan-feature and /validate-phase gate on build-index.sh --check.
+echo "== index generator =="
+I="$TMP/index-edge"
+mkdir -p "$I/Assets/TextMesh Pro" "$I/src"
+# A space in a source path aborted the script: xargs split on it, and with
+# `set -euo pipefail` a failed command substitution in an assignment exits.
+# Unity ships this exact directory, which detect-toolchain.sh exempts by name.
+printf 'class A{}\n' >"$I/Assets/TextMesh Pro/foo.cs"
+printf 'def f(): pass\n' >"$I/src/a.py"
+gitq "$I" init -q && gitq "$I" add -A && gitq "$I" commit -qm init
+(cd "$I" && CLAUDE_PROJECT_DIR="$I" "$PKG/scripts/build-index.sh") >"$TMP/index1.log" 2>&1 \
+  && ok "index builds with a space in a source path" \
+  || { bad "index builds with a space in a source path"; sed 's/^/    /' "$TMP/index1.log"; }
+check "index: overview written" test -f "$I/docs/index/_overview.md"
+check "index: spaced file indexed" grep -q 'Assets/TextMesh Pro/foo.cs' "$I/docs/index/Assets.md"
+check "index: line count not lost to word splitting" grep -q 'Lines: 1' "$I/docs/index/Assets.md"
+check "index: --check reports fresh after a build" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index fresh"' \
+  _ "$I" "$PKG"
+# A module name that itself contains a space must not leak into the page filename.
+J="$TMP/index-spacemod"
+mkdir -p "$J/My Game"
+printf 'x = 1\n' >"$J/My Game/a.py"
+gitq "$J" init -q && gitq "$J" add -A && gitq "$J" commit -qm init
+(cd "$J" && CLAUDE_PROJECT_DIR="$J" "$PKG/scripts/build-index.sh") >/dev/null 2>&1
+check "index: spaced module name slugged, not split" test -f "$J/docs/index/My-Game.md"
+
+# A source-free repo exited 0 without writing _overview.md, so --check said
+# STALE forever while the rebuild it prescribes wrote nothing — an unbreakable
+# loop for /plan-feature step 1 on a greenfield project.
+K="$TMP/index-empty"
+mkdir -p "$K"
+printf '{"name":"t"}\n' >"$K/package.json"
+gitq "$K" init -q && gitq "$K" add -A && gitq "$K" commit -qm init
+(cd "$K" && CLAUDE_PROJECT_DIR="$K" "$PKG/scripts/build-index.sh") >/dev/null 2>&1 \
+  && ok "index builds on a source-free repo" || bad "index builds on a source-free repo"
+check "index: source-free repo still gets a stamped overview" \
+  grep -q 'workflow-index-stamp' "$K/docs/index/_overview.md"
+check "index: source-free repo reports fresh, not a stale loop" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index fresh"' \
+  _ "$K" "$PKG"
+
+# ============================= toolchain gaps ================================
+# P7: a gap is stated, never silent. Node without tsconfig.json left typecheck
+# in neither "commands" nor "gaps", so /validate-phase silently skipped it.
+echo "== toolchain gaps =="
+L="$TMP/toolchain-node"
+mkdir -p "$L"
+printf '{"name":"t","scripts":{"test":"node --test"},"devDependencies":{"eslint":"^9"}}\n' >"$L/package.json"
+gitq "$L" init -q && gitq "$L" add -A && gitq "$L" commit -qm init
+(cd "$L" && CLAUDE_PROJECT_DIR="$L" "$PKG/hooks/lib/detect-toolchain.sh") >"$TMP/tc1.log" 2>&1 \
+  && ok "detect-toolchain runs on a plain-JS node repo" || bad "detect-toolchain runs on a plain-JS node repo"
+check "node without tsconfig.json reports a typecheck gap" \
+  bash -c 'jq -e ".gaps[] | select(startswith(\"typecheck (node)\"))" "$1/.claude/workflow/toolchain.json"' \
+  _ "$L"
+check "typecheck absent from commands (nothing invented)" \
+  bash -c 'test "$(jq -r ".commands.typecheck // \"absent\"" "$1/.claude/workflow/toolchain.json")" = absent' \
+  _ "$L"
 
 echo ""
 echo "corporate-smoke: $((CHECKS-FAILS))/$CHECKS passed"

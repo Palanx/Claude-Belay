@@ -53,10 +53,15 @@ actually running the test command):
   },
   "file_commands": {
     "js": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" },
-    "mjs": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" }
+    "jsx": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" },
+    "mjs": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" },
+    "cjs": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" },
+    "ts": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" },
+    "tsx": { "lint": "npx eslint {file}", "format": "npx prettier --write {file}" }
   },
+  "exempt": [],
   "gaps": [
-    "typecheck (node): no tsconfig.json — plain JS project. Fix if wanted: adopt // @ts-check + npx tsc --checkJs, or leave as an accepted gap.",
+    "typecheck (node): no tsconfig.json — plain JS project, so /validate-phase has no typecheck to run. Fix: add a tsconfig.json (npx tsc --noEmit), or adopt // @ts-check with \"checkJs\": true, or accept it as a permanent gap.",
     "secrets: gitleaks not on PATH — pre-commit hook falls back to builtin grep patterns (weaker). Fix: install gitleaks (https://github.com/gitleaks/gitleaks)."
   ]
 }
