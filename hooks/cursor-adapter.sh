@@ -11,8 +11,17 @@
 #   beforeShellExecution -> pre-commit-security.sh (exit 2 => permission deny)
 set -u
 DIR="$(cd "$(dirname "$0")" && pwd)"
-# Adapter lives at <root>/.claude/hooks/ — derive the root from that; Cursor
-# does not set CLAUDE_PROJECT_DIR and may not run hooks from the project root.
+# Adapter lives at <root>/.claude/hooks/, so the root is two levels up. Two
+# separate things depend on cwd, and only one of them is ours:
+#   - .cursor/hooks.json names this script relatively ("./.claude/hooks/..."),
+#     which is Cursor's own documented form and is resolved against the project
+#     root by Cursor. If hooks stop firing entirely after a Cursor update, that
+#     resolution is the first thing to check — nothing here can compensate for a
+#     command that never ran.
+#   - The process cwd once we ARE running, which Cursor does not promise is the
+#     root, and which the child hooks need for git and toolchain lookups. Hence
+#     deriving it from $0 rather than trusting $PWD; Cursor also does not set
+#     CLAUDE_PROJECT_DIR, which is what the belay hooks read.
 export CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$DIR/../.." && pwd)}"
 . "$DIR/lib/common.sh"
 hook_init

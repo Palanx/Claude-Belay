@@ -225,6 +225,14 @@ All state (`.claude/workflow/`, `docs/`) is shared — sessions from either agen
 converge on the same files (P6/P8). Cursor's hooks are beta; if an event name or
 payload field changes upstream, only `cursor-adapter.sh` needs updating.
 
+**If Cursor hooks stop firing at all**, check the command path first, before the payload:
+`.cursor/hooks.json` names the adapter relatively (`./.claude/hooks/cursor-adapter.sh`),
+Cursor's documented form, resolved against the project root by Cursor itself. The adapter
+derives the project root from its own location rather than from `$PWD`, so it survives
+being *executed* from elsewhere — but nothing it does can compensate for a command that was
+never resolved. Symptom: no hook output anywhere, in contrast to a payload change, which
+shows up as hooks running but seeing no file path.
+
 ### Updating an installed project
 
 ```
@@ -236,13 +244,17 @@ Re-installing is the upgrade: commands, hooks, templates, the index script and b
 hook wiring are replaced with the current package; project state (`CLAUDE.md`, `docs/`,
 `boundaries.rules`, `toolchain.json`) is untouched.
 
-Corporate installs additionally *remove* package-owned files the package no longer ships:
-the previous exclude block is the record of what belay installed, so a command or hook
-deleted upstream is deleted from the target too. It has to be — an orphan file falls out
-of the regenerated manifest, and because `.claude/` holds no tracked files git collapses
-that to `?? .claude/`, exposing the whole directory and failing the no-touch check. Normal
-installs leave orphans in place (they are harmless there: a deleted hook's wiring is
-dropped, so nothing runs it).
+Re-installing also *removes* package-owned files the package no longer ships, in both
+modes. `install.sh` records every path it writes in `.claude/workflow/installed` and
+compares it against the previous run's copy, so a command or hook deleted upstream is
+deleted from the target — never anything the repo tracks, and never `.cursor/` files when
+the re-install omitted `--cursor`. A dropped *hook* was already harmless (its wiring is
+dropped, so nothing ran it); a dropped *command* was not — it stayed a live slash command
+forever. In corporate mode the same reap keeps the uninstall manifest honest and stops an
+orphan un-hiding the directory it lives in.
+
+That file doubles as the **uninstall list for a normal install**: delete the paths it names,
+then `.claude/workflow/` and belay's hook entries in `.claude/settings.json`.
 
 Knowing *which* projects are behind is the package's job, not the project's. `install.sh`
 records every target in `~/.claude-belay/installs`, and opening a Claude session in this

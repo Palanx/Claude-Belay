@@ -95,6 +95,15 @@ mkdir -p "$TARGET/.claude/commands" "$TARGET/.claude/hooks/lib" "$TARGET/$SCRIPT
          "$TARGET/$DOCS/phases" "$TARGET/$DOCS/index" "$TARGET/$DOCS/security" \
          "$TARGET/.claude/workflow"
 
+# Every path this install writes, one per line, relative to the target. Written
+# to .claude/workflow/installed at the end and compared against the previous
+# run's copy to find files the package no longer ships (see the reaping step) —
+# in normal mode as well as corporate, where a dropped command would otherwise
+# stay a live slash command forever.
+INSTALLED=""
+record() { INSTALLED="$INSTALLED$1
+"; }
+
 copy_into() { # copy_into <target-relative destdir> <src files...>
   local dest="$1" f b out; shift
   for f in "$@"; do
@@ -104,6 +113,7 @@ copy_into() { # copy_into <target-relative destdir> <src files...>
       continue
     fi
     cp -f "$f" "$out"
+    record "$dest/$b"
     if [ "$CORPORATE" -eq 1 ]; then
       # Rewrite canonical paths in the copy (package sources stay canonical).
       # Maintenance point: any new docs/<subdir> referenced by commands or
@@ -116,6 +126,10 @@ copy_into() { # copy_into <target-relative destdir> <src files...>
     case "$b" in *.sh) chmod +x "$out" ;; esac
   done
 }
+
+MANIFEST="$TARGET/.claude/workflow/installed"
+PREV_INSTALLED=""
+[ -f "$MANIFEST" ] && PREV_INSTALLED="$(grep -v '^[[:space:]]*#' "$MANIFEST" | grep -v '^$' || true)"
 
 copy_into .claude/commands  "$PKG"/commands/*.md
 copy_into .claude/hooks     "$PKG"/hooks/*.sh
@@ -304,11 +318,12 @@ if [ "$CORPORATE" -eq 1 ]; then
     emit "/CLAUDE.local.md"
     emit "/.claude/workflow/"
     emit_wiring "/.claude/settings.local.json" "$SET_CREATED"
-    for f in "$PKG"/commands/*.md;  do emit "/.claude/commands/$(basename "$f")"; done
-    for f in "$PKG"/hooks/*.sh;     do emit "/.claude/hooks/$(basename "$f")"; done
-    for f in "$PKG"/hooks/lib/*.sh; do emit "/.claude/hooks/lib/$(basename "$f")"; done
+    # Straight from what copy_into actually wrote, so this list cannot drift from
+    # the install. Only the shared dirs need naming — everything under .belay/ is
+    # already covered by the /.belay/ line above.
+    printf '%s' "$INSTALLED" | grep -E '^\.(claude|cursor)/(commands|hooks)/' | sort \
+      | while IFS= read -r p; do emit "/$p"; done
     if [ "$CURSOR" -eq 1 ]; then
-      for f in "$PKG"/commands/*.md; do emit "/.cursor/commands/$(basename "$f")"; done
       emit_wiring "/.cursor/hooks.json" "${CHJ_CREATED:-0}"
       emit "/.cursor/rules/belay.mdc"
     else
@@ -324,29 +339,49 @@ if [ "$CORPORATE" -eq 1 ]; then
   printf '%s\n' "$NEW_BLOCK" >>"$EXC"
   echo "  wrote exclude block to .git/info/exclude (nothing installed will appear in git status)"
 
-  # --- reap orphans -----------------------------------------------------------
-  # Containment above no longer depends on this (the directory-wide lines cover
-  # any file, listed or not), but the uninstall manifest does: a package-owned
-  # file the package no longer ships would otherwise sit on disk forever, unnamed
-  # by the manifest that is supposed to account for every installed path. The old
-  # manifest proves those paths were belay's, so delete them.
-  NEW_PATHS="$(printf '%s\n' "$NEW_BLOCK" | grep '^/' || true)"
-  while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    printf '%s\n' "$NEW_PATHS" | grep -qxF "$p" && continue
-    # Skip .cursor/ entirely unless this run wired Cursor: a re-install that
-    # merely forgot --cursor must not delete the Cursor command copies or the
-    # pointer doc an entry command wrote.
-    case "$p" in /.cursor/*) [ "$CURSOR" -eq 1 ] || continue ;; esac
-    # Regular files only (never the /.belay/ or /.claude/workflow/ directory
-    # entries), and never anything the repo tracks — a company that committed
-    # belay's copy owns it now.
-    [ -f "$TARGET$p" ] || continue
-    tracked "${p#/}" && continue
-    rm -f "$TARGET$p"
-    echo "  removed ${p#/} — no longer shipped by the package (was in the previous manifest)"
-  done <<<"$OLD_PATHS"
 fi
+
+# --- record what was installed, and reap what the package no longer ships ----
+# Both modes. A dropped hook is harmless (rewire() removes its wiring, so nothing
+# runs it), but a dropped COMMAND stays a live slash command forever, and in
+# corporate mode any orphan also falls out of the uninstall manifest that is
+# supposed to account for every installed path.
+if [ -z "$PREV_INSTALLED" ] && [ "$CORPORATE" -eq 1 ] && [ -n "${OLD_PATHS:-}" ]; then
+  # Installed by a version that predates this manifest: the corporate exclude
+  # block was the only record, so fall back to it for this one run.
+  PREV_INSTALLED="$(printf '%s\n' "$OLD_PATHS" | sed 's#^/##')"
+fi
+while IFS= read -r p; do
+  [ -n "$p" ] || continue
+  printf '%s' "$INSTALLED" | grep -qxF "$p" && continue
+  # Only ever reap paths copy_into manages. The corporate fallback list is the old
+  # exclude block, which also names files belay writes by other means —
+  # settings.local.json (wiring, possibly merged into the operator's own),
+  # CLAUDE.local.md and .cursor/rules/belay.mdc (written by an entry command).
+  # Deleting any of those would be destructive, not tidy.
+  case "$p" in
+    .claude/commands/*|.claude/hooks/*|.cursor/commands/*|"$SCRIPTS"/*|"$DOCS"/templates/*) ;;
+    *) continue ;;
+  esac
+  # Spare .cursor/ unless this run wired Cursor: a re-install that merely forgot
+  # --cursor must not delete the command copies or the pointer doc an entry
+  # command wrote.
+  case "$p" in .cursor/*) [ "$CURSOR" -eq 1 ] || continue ;; esac
+  # Regular files only (never a directory entry from the fallback), and never
+  # anything the repo tracks — a company that committed belay's copy owns it now.
+  [ -f "$TARGET/$p" ] || continue
+  tracked "$p" && continue
+  rm -f "$TARGET/$p"
+  echo "  removed $p — no longer shipped by the package"
+done <<<"$PREV_INSTALLED"
+
+{
+  echo "# Files installed by belay, one per line, relative to this repo root."
+  echo "# Written by install.sh; used to delete files the package stops shipping,"
+  echo "# and as the uninstall list (delete these, then .claude/workflow/)."
+  echo "# Not project state — do not hand-edit."
+  printf '%s' "$INSTALLED" | sort
+} >"$MANIFEST"
 
 # --- verify -----------------------------------------------------------------
 fail=0
