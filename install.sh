@@ -40,6 +40,22 @@ tracked() { git -C "$TARGET" ls-files --error-unmatch "$1" >/dev/null 2>&1; }
 if [ "$CORPORATE" -eq 1 ]; then
   git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1 \
     || { echo "install.sh: --corporate requires a git repo (.git/info/exclude is the containment mechanism)" >&2; exit 1; }
+  # Both mode switches are refused, not just corporate -> normal (below). Going
+  # normal -> corporate would leave two state trees (docs/ and .belay/) and,
+  # because a committed .claude/workflow/ is tracked and so omitted from the
+  # exclude manifest, the corporate marker itself would show in git status —
+  # failing the no-touch check while already having flipped the mode.
+  if [ ! -f "$TARGET/.claude/workflow/corporate" ] && [ -f "$TARGET/docs/templates/spec.md" ]; then
+    echo "install.sh: $TARGET already has a normal (non-corporate) belay install" >&2
+    echo "  Switching modes in place is not supported: docs/ is tracked by the repo, so" >&2
+    echo "  corporate mode could neither relocate nor hide it, and the install would flip" >&2
+    echo "  the mode marker while failing its own no-touch check." >&2
+    echo "  To move this repo to corporate mode, uninstall the normal install first" >&2
+    echo "  (delete docs/, scripts/build-index.sh, .claude/{commands,hooks,workflow} and" >&2
+    echo "  belay's hook entries in .claude/settings.json), commit that, then re-run" >&2
+    echo "  install.sh --corporate." >&2
+    exit 1
+  fi
   DOCS=".belay/docs" SCRIPTS=".belay/scripts"
   SET="$TARGET/.claude/settings.local.json"
   STATUS_BEFORE="$(git -C "$TARGET" status --porcelain)"
@@ -111,10 +127,9 @@ copy_into "$DOCS/templates" "$PKG"/templates/*
 # package commit whose behavior they observed.
 ver="$(git -C "$PKG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 printf 'belay %s (installed %s)\n' "$ver" "$(date +%F)" >"$TARGET/.claude/workflow/belay-version"
-if [ "$CORPORATE" -eq 1 ]; then
-  # Marker the entry commands check: write CLAUDE.local.md, never CLAUDE.md.
-  : >"$TARGET/.claude/workflow/corporate"
-fi
+# The corporate marker is stamped at the very END of this script, once every
+# check has passed: it flips the target into a mode whose plain re-install is
+# refused, so a failed install must not leave it behind.
 
 # Install registry, same $HOME channel as /belay-feedback: outside the repo, so
 # no git footprint and corporate-safe. scripts/installs-stale.sh (package repo
@@ -296,6 +311,14 @@ if [ "$CORPORATE" -eq 1 ]; then
   fi
 fi
 [ $fail -eq 0 ] || exit 1
+
+if [ "$CORPORATE" -eq 1 ]; then
+  # Marker the entry commands check: write CLAUDE.local.md, never CLAUDE.md.
+  # Last write in the script, and deliberately after the no-touch check — it is
+  # covered by the /.claude/workflow/ exclude entry, and a failed install above
+  # must leave the target in whatever mode it was already in.
+  : >"$TARGET/.claude/workflow/corporate"
+fi
 
 echo ""
 echo "Installed. Next, inside a Claude Code session in $TARGET:"
