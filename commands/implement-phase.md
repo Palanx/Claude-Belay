@@ -14,6 +14,8 @@ truthful written record. The session that runs this command should need nothing 
 **Preconditions:**
 - `docs/phases/$1/spec.md` exists and PHASES.md status is `expanded` (or `in-progress` — resuming after an interrupted session is normal; read `notes.md` first to see how far it got).
 - If status is `pending`: stop, run `/expand-phase $1` first.
+- If status is `blocked: <reason>`: this command is what resumes it. Read `notes.md` and the reason first, and confirm with the operator that the reason is actually resolved — the status says a *human decision* was owed. Once confirmed, set the status to `in-progress` (step 1) and record the resolution in `notes.md` under `## Deviations`. If the reason is still open, stop and repeat it; do not quietly implement past it.
+- If status is `superseded by <ids>`: nothing to do here — this cut was replaced. Work on one of the ids named instead.
 
 **Reads:** `CLAUDE.md`, `docs/phases/$1/spec.md` (+ `notes.md` if resuming), every file in the spec's Context pointers. Nothing else unless the spec proves insufficient — and if it does, that goes in the notes (see failure modes).
 **Writes:** the source files named in the spec's Plan, `docs/phases/$1/notes.md`, `docs/phases/PHASES.md` (status transitions).
@@ -35,7 +37,7 @@ truthful written record. The session that runs this command should need nothing 
 
 4. **On deviation** — the spec says X, reality demands Y:
    - Deviation stays inside this phase's scope (different function shape, extra helper, a file the spec missed) → do Y, and record it immediately in `notes.md` under `## Deviations`: what the spec said, what was done, why.
-   - Deviation changes this phase's goal or another phase's premise → STOP. Record the finding in `notes.md`, set status `blocked` with a one-line reason in PHASES.md, and report to the operator. That decision is a re-plan, not an implementation detail.
+   - Deviation changes this phase's goal or another phase's premise → STOP. Record the finding in `notes.md`, set status `blocked` with a one-line reason in PHASES.md, and report to the operator. That decision is a re-plan, not an implementation detail: it goes to `/plan-feature` ("Re-cutting a phase whose premise died"), which supersedes the affected rows and appends replacements. If the operator instead resolves the reason without a re-cut, this command resumes the phase (see preconditions).
 
 5. **Run all acceptance criteria** from the spec, in order, once the plan is complete.
    Fix failures and re-run until clean or genuinely blocked.

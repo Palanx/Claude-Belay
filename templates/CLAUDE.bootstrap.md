@@ -10,9 +10,10 @@ file under 150 lines — a line added here is a tax on every future session.
 
 One pipeline: `/plan-feature` → `/expand-phase <id>` → `/implement-phase <id>` →
 `/validate-phase <id>` → repeat. Phase state lives in `docs/phases/PHASES.md`
-(vocabulary: `pending | expanded | in-progress | blocked | done`) — trust the table, not
-memory. Never expand a phase whose dependencies aren't `done`. Never mark `done`
-yourself; only `/validate-phase` does.
+(vocabulary: `pending | expanded | in-progress | blocked | superseded by <ids> | done`) —
+trust the table, not memory. Never expand a phase whose dependencies aren't `done`. Never
+mark `done` yourself; only `/validate-phase` does. A cut that turns out wrong is
+superseded by new rows, never edited or deleted — same rule as an ADR.
 
 ## Session reading rule
 

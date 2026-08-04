@@ -11,9 +11,10 @@ rule in this file is true in *every* session; keep it under 150 lines.
 
 One pipeline: `/plan-feature` → `/expand-phase <id>` → `/implement-phase <id>` →
 `/validate-phase <id>` → repeat. Phase state lives in `docs/phases/PHASES.md`
-(vocabulary: `pending | expanded | in-progress | blocked | done`) — trust the table, not
-memory. Never expand a phase whose dependencies aren't `done`. Never mark `done`
-yourself; only `/validate-phase` does. If docs and code seem out of sync, run
+(vocabulary: `pending | expanded | in-progress | blocked | superseded by <ids> | done`) —
+trust the table, not memory. Never expand a phase whose dependencies aren't `done`. Never
+mark `done` yourself; only `/validate-phase` does. A cut that turns out wrong is
+superseded by new rows, never edited or deleted — same rule as an ADR. If docs and code seem out of sync, run
 `/refresh-index` before planning anything.
 
 ## Session reading rule

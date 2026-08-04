@@ -65,7 +65,7 @@ marked `done` is load-bearing for every phase that depends on it.
 
 6. **Closure test (P5).** Check the record, not just the code:
    - notes.md has all four sections (Outcome, Deviations, Debt, For later phases), none blank — `None` is an entry, blank is a violation.
-   - Every file modified (git diff) is reachable from the spec's Context pointers or Plan. A file changed but never named in the spec = the phase escaped its scope: record it in notes.md Deviations and flag it in your report.
+   - Every file modified (git diff) is reachable from the spec's Context pointers or Plan. A file changed but never named in the spec = the phase escaped its scope: closure test FAILED. Record it in notes.md Deviations, flag it in your report, and name it in the spec's Plan before re-running — the spec has to describe the change that actually happened.
    - An `undecidable` finding from step 5 IS a missing pointer, found from outside your own head: closure test FAILED; record what the reviewer could not resolve in notes.md Deviations.
    - If notes.md Deviations reports missing pointers, mark the closure test FAILED even if the code passes — the *next* phase pays for it; the operator must know the cuts are drifting.
 
@@ -85,13 +85,17 @@ Append to `docs/phases/$1/notes.md`:
 
 On full pass: PHASES.md status → `done`. On any failure: status stays `in-progress`;
 report exactly which gate failed with its output — that error text is the input for the
-next `/implement-phase` iteration.
+next iteration. Where that iteration happens depends on what failed: steps 1–4 and a
+`contradicts` verdict go back to `/implement-phase $1` (the code is wrong); a closure-test
+failure or an `undecidable` verdict is fixed in `spec.md` plus a notes.md Deviations entry
+and re-validated from here (the record is wrong). Say which of the two you are handing
+back, or the next session guesses.
 
 ## Failure modes
 
-- **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3); if you're on iteration 3+, the spec is wrong — stop and say so.
+- **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3); if you're on iteration 3+, the spec is wrong — stop and say so, and route it: a wrong *spec* is re-expanded (status back to `pending`, `/expand-phase $1`), a wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
 - **Review verdicts split by consequence** — `contradicts` is a code bug (the loop above); `undecidable` is a spec bug, so the fix is a pointer in spec.md (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
-- **Everything passes but the closure test** → phase is functionally done but the process is leaking scope; still record `done` ONLY after the deviations are written and flagged to the operator.
+- **Everything passes but the closure test** → still a failure: status stays `in-progress`. The code may well be right; the *record* isn't, and the next phase is what pays for that. It is also the cheapest failure here to clear, so clear it rather than arguing with it: name the stray file in the spec's Plan, or add the pointer the reviewer could not resolve, then write the Deviations entry that any spec amendment requires and re-run. A phase marked `done` asserts that a cold session can rebuild its context from the spec — that is exactly what the closure test measures, so `done` on a failed closure test would make the word mean nothing.
 
 ## Handoff
 
