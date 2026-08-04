@@ -114,7 +114,7 @@ behaviour — is unchanged.
    *de facto* layering: which directories act as entry points, which as domain/services,
    which as infrastructure. Name the layers after what the directories are actually
    called, not textbook names. Write `docs/constraints.md` now, from
-   `docs/templates/constraints.md`, with §Layering filled — the rest of its sections
+   `docs/templates/constraints.md`, with `§Layering` filled — the rest of its sections
    stay as template placeholders until step 8. Fill step 4's `pending:` list in the log
    with the module names from the index.
 
@@ -186,8 +186,8 @@ behaviour — is unchanged.
    hand. Nothing in the pipeline requires it (`/plan-feature` reads it only if present),
    but without it a feature can never be checked against a stated non-goal.
 
-8. **Constraints + phase table.** Finish `docs/constraints.md` — §Layering (step 2) and
-   §Observed conventions (step 4) are already there; fill the remaining sections
+8. **Constraints + phase table.** Finish `docs/constraints.md` — `§Layering` (step 2) and
+   `§Observed conventions` (step 4) are already there; fill the remaining sections
    (Invariants, Error handling, Testing) and remove any leftover template placeholder.
    Write `docs/phases/PHASES.md` from the template with an empty phase table — phases
    come from `/plan-feature`.

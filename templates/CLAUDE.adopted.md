@@ -78,7 +78,7 @@ anything else. Changing a boundary rule requires a superseding ADR, never a sile
 
 ## Conventions
 
-- Follow the observed conventions in `docs/constraints.md` §Observed conventions — each has a real file as its reference example.
+- Follow the observed conventions in `docs/constraints.md` `§Observed conventions` — each has a real file as its reference example.
 - Commits: {{COMMIT_CONVENTION — as observed in git log, e.g. Conventional Commits}}.
 - Every command that does work ends by writing its outcome to disk (notes, status).
 - Decisions that constrain the future get an ADR in `docs/adr/` before the code lands.

@@ -167,8 +167,15 @@ homonymous command, a pre-existing `settings.local.json`), installs with
 `--corporate --cursor`, and asserts the no-touch guarantees, path rewriting, idempotence,
 both mode guards, tracked-file skips, orphan reaping, the created-vs-merged manifest
 marking, agent-doc canonicalization, the install registry, plus a normal-mode regression.
-Despite the name it also covers the stack-agnostic pieces — the index generator (paths
-with spaces, source-free repos) and toolchain gap detection.
+Despite the name it covers the whole package: the index generator (paths with spaces,
+source-free repos), toolchain gap detection, and the edit gates (a formatter that rewrites
+the file must say so; both gates must fail closed with no JSON parser).
+
+Three asserts are **documentation consistency** rather than behaviour — the status
+vocabulary must match across the files that define it, every `§Section` a command or
+template points at must exist in `constraints.md`, and both entry commands must handle the
+`CLAUDE.md` workflow variants. That class of bug ("two files say different things") is what
+an audit finds and no behavioural test can, so it fails the suite instead.
 
 ### Cursor CLI / IDE
 
