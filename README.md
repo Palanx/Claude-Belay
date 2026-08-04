@@ -153,11 +153,14 @@ an active rule in Cursor's settings. If either stops loading (a client update dr
 `CLAUDE.local.md` support is the realistic risk), everything keeps *running* but the
 agent silently loses the pointer to the workflow state — nothing else will tell you.
 
-Corporate smoke test: run `tests/corporate-smoke.sh` from the package repo. It builds a
-hostile scratch repo (tracked `CLAUDE.md`, tracked `.claude/settings.json` and `docs/`,
-a tracked homonymous command, a pre-existing `settings.local.json`), installs with
-`--corporate --cursor`, and asserts the no-touch guarantees, path rewriting,
-idempotence, mode guard, tracked-file skips, plus a normal-mode regression.
+Smoke test: run `tests/corporate-smoke.sh` from the package repo. It builds a hostile
+scratch repo (tracked `CLAUDE.md`, tracked `.claude/settings.json` and `docs/`, a tracked
+homonymous command, a pre-existing `settings.local.json`), installs with
+`--corporate --cursor`, and asserts the no-touch guarantees, path rewriting, idempotence,
+both mode guards, tracked-file skips, orphan reaping, the created-vs-merged manifest
+marking, agent-doc canonicalization, the install registry, plus a normal-mode regression.
+Despite the name it also covers the stack-agnostic pieces — the index generator (paths
+with spaces, source-free repos) and toolchain gap detection.
 
 ### Cursor CLI / IDE
 
