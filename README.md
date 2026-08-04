@@ -410,6 +410,13 @@ cd /path/to/repo && claude
 > /adopt-project                  # (or /bootstrap-project on a new repo) — builds index, constraints, toolchain
 ```
 
+Say so when the entry command asks which way you'll work: it writes the **lightweight
+variant** of `CLAUDE.md` instead of the pipeline one — same file, same pointer table, minus
+the phase sections. That matters because `CLAUDE.md` is loaded every session, so a
+hand-driven project carrying pipeline instructions tells every session to run a workflow
+you opted out of. Switching later is editing that one section; the pipeline stays installed
+regardless.
+
 Then:
 
 **Use:** the hooks (they gate a 3-line edit the same as a phase, and the commit guard

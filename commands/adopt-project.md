@@ -210,6 +210,18 @@ behaviour — is unchanged.
    Nothing to back up is a success, not a failure — the block exits 0 either way.
 
    Then copy `docs/templates/CLAUDE.adopted.md` to `CLAUDE.md` and fill the placeholders.
+
+   **Pick the workflow variant.** The template ships both the pipeline sections and a
+   commented LIGHTWEIGHT pair. Ask the operator once, in one sentence — will they hand whole
+   features to the agent (pipeline), or keep driving the repo themselves and use Claude for
+   advice, planning and small changes (lightweight)? Write the matching pair, delete the
+   other with its comment markers, and for lightweight also drop the phase rows from the
+   pointer table. Adopted repos are frequently the lightweight case and corporate installs
+   almost always are, so if nobody answers, look at what you just surveyed: an active repo
+   with many hands is lightweight, a repo the operator owns alone can take the pipeline. Say
+   which you chose and why. Never ship both — a session that reads a mandate the operator
+   opted out of will follow it.
+
    Whatever real files existed — `CLAUDE.md`, `AGENTS.md`, or both — are all merge input:
    keep the project-specific rules that survive the P1 test ("true in every session?"),
    move the rest into `docs/constraints.md`, add the pointer table, and state a rule that
@@ -237,7 +249,10 @@ behaviour — is unchanged.
 
 Verify the written state: `docs/adoption-report.md`, `docs/constraints.md`,
 `docs/phases/PHASES.md`, `CLAUDE.md` (< 150 lines), `.claude/workflow/toolchain.json`,
-`.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Only once that
+`.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Confirm exactly
+one workflow variant survived step 9 — `grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT' CLAUDE.md`
+must print `0`; a hit means a template comment (and probably both variants) is still there,
+which the line count is too generous to catch. Only once that
 passes, flip the log's marker to `<!-- belay-adoption: complete -->` — the marker means
 "verified", not "the steps ran", and it is what stops the next `/adopt-project` from
 re-adopting. Print the
