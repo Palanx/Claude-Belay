@@ -339,8 +339,10 @@ Run from the target repo root — every step states its expected outcome:
 
 ```bash
 # 1. Hook syntax + wiring
+# Corporate installs wire settings.local.json instead of settings.json; both are checked.
 bash -n .claude/hooks/*.sh .claude/hooks/lib/*.sh        # expect: silence
-jq . .claude/settings.json >/dev/null && echo wiring-ok  # expect: wiring-ok
+SET=.claude/settings$([ -e .claude/workflow/corporate ] && echo .local).json
+jq . "$SET" >/dev/null && echo wiring-ok                 # expect: wiring-ok
 
 # 2. Toolchain detection runs and reports honestly
 .claude/hooks/lib/detect-toolchain.sh                    # expect: "toolchain written ...", stacks + gaps listed
@@ -362,9 +364,10 @@ echo '{"tool_name":"Bash","tool_input":{"command":"git commit -m x"}}' \
   | .claude/hooks/pre-commit-security.sh; echo "exit=$?" # expect: COMMIT BLOCKED ... exit=2
 rm .claude/workflow/protected-branches
 
-# 5. Index builds and self-reports freshness
-scripts/build-index.sh                                   # expect: "index written: docs/index (...)"
-scripts/build-index.sh --check                           # expect: "index fresh (<hash>)"
+# 5. Index builds and self-reports freshness (corporate: .belay/scripts/, .belay/docs/index)
+BI=$([ -e .claude/workflow/corporate ] && echo .belay/)scripts/build-index.sh
+"$BI"                                                    # expect: "index written: ... /index (...)"
+"$BI" --check                                            # expect: "index fresh (<hash>)"
 
 # 6. Commands are visible
 claude                                                    # then type /  — expect the nine workflow commands listed
