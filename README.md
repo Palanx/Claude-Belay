@@ -198,6 +198,32 @@ Code and from Cursor (`cursor-agent` or the IDE):
   source of truth for both agents. See below for what happens when the repo already has
   agent docs.
 
+### Gating your own commits too (`--git-hook`)
+
+```
+./install.sh /path/to/repo --git-hook
+```
+
+Every gate belay installs is an **agent** gate. `pre-commit-security.sh` is wired as a
+`PreToolUse` hook, so it sees the Bash commands the agent runs and nothing else — a
+person typing `git commit` in a terminal is not covered by any of it. That surprises
+people who plant a test secret, commit it by hand, and watch it sail through.
+
+`--git-hook` writes `.git/hooks/pre-commit`, which feeds the same script the same
+payload Claude Code would have sent. One scanner, one `secret-allowlist`, one set of
+patterns, both paths. Opt-in on purpose: it is the only part of the install that changes
+what happens when *you* commit, so a re-install never starts blocking you silently.
+
+- **Never clobbers.** If a `pre-commit` hook already exists, it is left byte-identical
+  and the single line to append is printed instead. Re-running with a belay hook already
+  in place is a no-op.
+- **Honours `core.hooksPath`**, so husky/lefthook repos get it in the directory git
+  actually runs.
+- **Fails open.** If `.claude/hooks/` disappears, the hook exits 0 — uninstalling belay
+  must never brick every commit in the repo, so a leftover hook is harmless.
+- `git commit --no-verify` skips it, and `.git/hooks/` is per-clone: this covers *you*,
+  not the team. Team-wide, unbypassable coverage is a CI job, not a local hook.
+
 ### Existing CLAUDE.md / AGENTS.md
 
 One rule, six states: **`CLAUDE.md` is the real file, `AGENTS.md` is a symlink to it or
@@ -261,7 +287,10 @@ forever. In corporate mode the same reap keeps the uninstall manifest honest and
 orphan un-hiding the directory it lives in.
 
 That file doubles as the **uninstall list for a normal install**: delete the paths it names,
-then `.claude/workflow/` and belay's hook entries in `.claude/settings.json`.
+then `.claude/workflow/` and belay's hook entries in `.claude/settings.json`. A
+`--git-hook` install also leaves `.git/hooks/pre-commit` behind — it is outside the
+working tree, so no manifest lists it, and it fails open once `.claude/hooks/` is gone.
+Delete it for tidiness, not for correctness.
 
 Knowing *which* projects are behind is the package's job, not the project's. `install.sh`
 records every target in `~/.claude-belay/installs`, and opening a Claude session in this
