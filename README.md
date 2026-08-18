@@ -76,6 +76,12 @@ Corporate mode (`--corporate`): the `docs/` and `scripts/` trees above live unde
 `.belay/`, the pointer doc is `CLAUDE.local.md` instead of `CLAUDE.md`, hook wiring is
 `.claude/settings.local.json`, and all of it is hidden from git via `.git/info/exclude`.
 
+**Everything below writes paths in their canonical form** (`docs/…`, `scripts/…`,
+`CLAUDE.md`). In a corporate install the installed copies of the commands and templates
+are rewritten to the `.belay/` form at install time, so the agent always follows the
+right paths — only paths *you* type by hand need translating. Where a difference is more
+than a prefix, the section says so.
+
 ## Installing
 
 ### Into a new (empty or nearly-empty) repo
@@ -111,6 +117,10 @@ unfinished step, re-reading nothing it already surveyed.
 cd /path/to/repo && claude
 > /adopt-project
 ```
+
+Then, as in any adoption, answer the "Decisions needed" section of the adoption report —
+here `.belay/docs/adoption-report.md` — and start with `/plan-feature <first change>`.
+Re-running `/adopt-project` in a fresh session resumes where it stopped, same as above.
 
 For repos where you may run agents but may not modify the company's agent docs or
 commit workflow files. Two guarantees, both checked by the installer itself:
@@ -196,7 +206,9 @@ Code and from Cursor (`cursor-agent` or the IDE):
   weaker there, and `/validate-phase` remains the hard gate.
 - `AGENTS.md` is symlinked to `CLAUDE.md` (Cursor reads `AGENTS.md`), so there is one
   source of truth for both agents. See below for what happens when the repo already has
-  agent docs.
+  agent docs. **Corporate mode does neither:** `AGENTS.md` is a company file, so no
+  symlink is created and the Cursor pointer is `.cursor/rules/belay.mdc`, written by the
+  entry command — see "Existing CLAUDE.md / AGENTS.md" below.
 
 ### Existing CLAUDE.md / AGENTS.md
 
@@ -503,9 +515,8 @@ Generated markdown, one file per module plus `_overview.md` (module table, heuri
 dependency edges, entry points), stamped with the commit it was built at.
 Regenerate: `scripts/build-index.sh` (or `/refresh-index`). Staleness:
 `scripts/build-index.sh --check` — run automatically by `/plan-feature`,
-`/validate-phase`, `/refresh-index`. In a corporate install the script and its output
-are `.belay/scripts/build-index.sh` and `.belay/docs/index/`; the installed copies of the
-commands are rewritten to match, so only paths you type by hand need the prefix.
+`/validate-phase`, `/refresh-index`. Corporate: `.belay/scripts/build-index.sh`, output
+in `.belay/docs/index/`.
 
 Format reasoning: markdown-per-module was chosen over a single JSON/SQLite artifact
 because the three consumers are a session loading *one section* (P1), a human reviewing
