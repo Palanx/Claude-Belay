@@ -501,6 +501,57 @@ printf 'belay unknown (installed 2020-01-01)\n' >"$N/.claude/workflow/belay-vers
 check "unknown stamp reported as uncomparable, not behind" \
   bash -c 'grep -q "version unknown" "$1" && ! grep -q "installs behind.*-> " "$1"' _ "$TMP/stale.log"
 
+# ========================== git pre-commit hook ==============================
+# The gate belay wires into Claude Code only ever sees the agent's commands.
+# --git-hook extends it to human commits — and must never eat an existing hook.
+echo "== git pre-commit hook (--git-hook) =="
+G="$TMP/githook"
+mkdir -p "$G"; gitq "$G" init -q; printf 'x\n' >"$G/a.txt"; gitq "$G" add -A; gitq "$G" commit -qm init
+
+check "no --git-hook: no pre-commit written" \
+  bash -c '"$1/install.sh" "$2" >/dev/null 2>&1 && test ! -e "$2/.git/hooks/pre-commit"' _ "$PKG" "$G"
+
+"$PKG/install.sh" "$G" --git-hook >"$TMP/gh1.log" 2>&1 \
+  && ok "--git-hook exits 0" || { bad "--git-hook exits 0"; sed 's/^/    /' "$TMP/gh1.log"; }
+check "pre-commit created and executable" test -x "$G/.git/hooks/pre-commit"
+
+# The whole point: a real `git commit` by a person must be blocked.
+printf 'aws_key = "AKIAIOSFODNN7EXAMPLE"\n' >"$G/leak.txt"; gitq "$G" add leak.txt
+check "human commit with a staged secret is BLOCKED" \
+  bash -c '! git -C "$1" -c user.email=t@t -c user.name=t commit -qm leak' _ "$G"
+check "--no-verify still commits (documented escape hatch)" \
+  gitq "$G" commit -q --no-verify -m leak
+gitq "$G" reset -q --hard HEAD~1
+
+# Re-install must not append a second copy.
+"$PKG/install.sh" "$G" --git-hook >"$TMP/gh2.log" 2>&1
+check "re-install leaves the hook byte-identical to the shipped one" \
+  cmp -s "$PKG/settings/pre-commit.githook" "$G/.git/hooks/pre-commit"
+check "re-install reports it was left alone" grep -q 'already runs belay' "$TMP/gh2.log"
+
+# Someone else's hook is sacred: left byte-identical, instructions printed.
+P="$TMP/githook-pre-existing"
+mkdir -p "$P"; gitq "$P" init -q; printf 'x\n' >"$P/a.txt"; gitq "$P" add -A; gitq "$P" commit -qm init
+printf '#!/bin/sh\necho theirs\n' >"$P/.git/hooks/pre-commit"; chmod +x "$P/.git/hooks/pre-commit"
+H_PRE="$(shasum "$P/.git/hooks/pre-commit" | cut -d' ' -f1)"
+"$PKG/install.sh" "$P" --git-hook >"$TMP/gh3.log" 2>&1
+check "pre-existing hook left byte-identical" \
+  test "$(shasum "$P/.git/hooks/pre-commit" | cut -d' ' -f1)" = "$H_PRE"
+check "pre-existing hook: manual-merge line printed" grep -q 'append this line' "$TMP/gh3.log"
+
+# core.hooksPath (husky et al) must be honoured, or the hook lands where git never looks.
+Q="$TMP/githook-hookspath"
+mkdir -p "$Q"; gitq "$Q" init -q; printf 'x\n' >"$Q/a.txt"; gitq "$Q" add -A; gitq "$Q" commit -qm init
+gitq "$Q" config core.hooksPath .husky
+"$PKG/install.sh" "$Q" --git-hook >"$TMP/gh4.log" 2>&1
+check "core.hooksPath honoured (.husky/, not .git/hooks/)" \
+  bash -c 'test -x "$1/.husky/pre-commit" && test ! -e "$1/.git/hooks/pre-commit"' _ "$Q"
+
+# Uninstalling belay must not brick commits — the hook fails open.
+rm -rf "$G/.claude"
+check "fails open once belay is gone" \
+  gitq "$G" commit -q --allow-empty -m "after uninstall"
+
 # ===================== documentation consistency =============================
 # This whole class of bug is "two files say different things", so it fails here
 # rather than in the next audit.

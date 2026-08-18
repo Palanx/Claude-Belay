@@ -23,15 +23,16 @@
 set -euo pipefail
 
 PKG="$(cd "$(dirname "$0")" && pwd)"
-TARGET="" CURSOR=0 CORPORATE=0
+TARGET="" CURSOR=0 CORPORATE=0 GITHOOK=0
 for a in "$@"; do
   case "$a" in
     --cursor) CURSOR=1 ;;
     --corporate) CORPORATE=1 ;;
+    --git-hook) GITHOOK=1 ;;
     *) TARGET="$a" ;;
   esac
 done
-[ -n "$TARGET" ] && [ -d "$TARGET" ] || { echo "usage: install.sh <target-repo-dir> [--cursor] [--corporate]" >&2; exit 1; }
+[ -n "$TARGET" ] && [ -d "$TARGET" ] || { echo "usage: install.sh <target-repo-dir> [--cursor] [--corporate] [--git-hook]" >&2; exit 1; }
 TARGET="$(cd "$TARGET" && pwd)"
 [ "$TARGET" = "$PKG" ] && { echo "install.sh: target is the package itself" >&2; exit 1; }
 
@@ -259,6 +260,42 @@ if [ "$CURSOR" -eq 1 ]; then
   fi
 fi
 
+# --- git pre-commit hook (--git-hook) ---------------------------------------
+# Opt-in, because it is the only part of the install that changes what happens
+# when a PERSON commits — everything else gates the agent. Off by default so a
+# re-install never silently starts blocking the operator's own commits.
+#
+# Never clobbers: plenty of repos already ship a pre-commit hook, and it may
+# already scan for secrets. An existing hook is left exactly as it is and the
+# one line to append is printed instead — merging into someone else's shell
+# script is not something an installer should guess at.
+if [ "$GITHOOK" -eq 1 ]; then
+  if ! git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "  WARNING: --git-hook needs a git repo — skipped"
+  else
+    # --git-path honours core.hooksPath, so husky/lefthook setups land in the
+    # directory git will actually run, not a .git/hooks/ nobody reads.
+    GH="$(git -C "$TARGET" rev-parse --git-path hooks/pre-commit)"
+    case "$GH" in /*) ;; *) GH="$TARGET/$GH" ;; esac
+    GHREL="${GH#"$TARGET"/}"
+    if [ -e "$GH" ] && grep -qF 'pre-commit-security.sh' "$GH" 2>/dev/null; then
+      echo "  $GHREL already runs belay's security gate — left alone"
+    elif [ -e "$GH" ]; then
+      echo "  NOTE: $GHREL already exists and does not call belay — left untouched."
+      echo "        To gate human commits too, append this line to it:"
+      echo "          echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit\"}}' | \"\$(git rev-parse --show-toplevel)\"/.claude/hooks/pre-commit-security.sh"
+    elif tracked "$GHREL"; then
+      # Only reachable via core.hooksPath pointing inside the working tree.
+      echo "  WARNING: $GHREL is tracked by the target repo — skipped (belay never writes tracked files)"
+    else
+      mkdir -p "$(dirname "$GH")"
+      cp "$PKG/settings/pre-commit.githook" "$GH"
+      chmod +x "$GH"
+      echo "  created $GHREL (human commits now hit the same secret gate as the agent)"
+    fi
+  fi
+fi
+
 # --- corporate: hide everything installed from git --------------------------
 if [ "$CORPORATE" -eq 1 ]; then
   EXC="$(git -C "$TARGET" rev-parse --git-path info/exclude)"
@@ -398,6 +435,11 @@ if [ "$CURSOR" -eq 1 ]; then
     [ -e "$TARGET/$f" ] || { echo "  MISSING after install: $f" >&2; fail=1; }
   done
   if command -v jq >/dev/null 2>&1; then jq . "$TARGET/.cursor/hooks.json" >/dev/null; fi
+fi
+# Only assert the hook belay itself wrote: a pre-existing one was deliberately
+# left alone above, and that is a successful install, not a missing file.
+if [ "$GITHOOK" -eq 1 ] && [ -n "${GH:-}" ] && [ -x "$GH" ]; then
+  bash -n "$GH"
 fi
 bash -n "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh "$TARGET/$SCRIPTS/build-index.sh"
 if command -v jq >/dev/null 2>&1 && [ -f "$SET" ]; then jq . "$SET" >/dev/null; fi
