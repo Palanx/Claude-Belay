@@ -452,9 +452,9 @@ small asks, plain prompts are enough — the hooks still fire. The pipeline stay
 installed; pick it up the day you hand over a full feature.
 
 **One obligation:** the index only maintains itself when Claude edits. Since most
-changes are yours, run `/refresh-index` (or `scripts/build-index.sh --check` to test
-staleness) after hand-made changes of any substance, or sessions will plan against a
-stale map.
+changes are yours, run `/refresh-index` (or `scripts/build-index.sh --check` — under
+`.belay/scripts/` in a corporate install — to test staleness) after hand-made changes of
+any substance, or sessions will plan against a stale map.
 
 Corporate installs (`--corporate`) compose naturally with this mode — safety net +
 index without the pipeline is the common corporate case.
@@ -503,7 +503,9 @@ Generated markdown, one file per module plus `_overview.md` (module table, heuri
 dependency edges, entry points), stamped with the commit it was built at.
 Regenerate: `scripts/build-index.sh` (or `/refresh-index`). Staleness:
 `scripts/build-index.sh --check` — run automatically by `/plan-feature`,
-`/validate-phase`, `/refresh-index`.
+`/validate-phase`, `/refresh-index`. In a corporate install the script and its output
+are `.belay/scripts/build-index.sh` and `.belay/docs/index/`; the installed copies of the
+commands are rewritten to match, so only paths you type by hand need the prefix.
 
 Format reasoning: markdown-per-module was chosen over a single JSON/SQLite artifact
 because the three consumers are a session loading *one section* (P1), a human reviewing
