@@ -112,13 +112,35 @@ elicit requirements interactively (step 2).
 
    On a repo with no agent docs both blocks are a no-op that still exits 0.
 
-   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, or move
-   `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company; skip the
-   backup and symlink steps above, since nothing is overwritten. Write
-   the filled template to `CLAUDE.local.md` instead (Claude Code auto-loads it alongside
-   `CLAUDE.md`), complementing any existing agent docs without repeating them. If
-   `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc` (frontmatter
-   `alwaysApply: true`) carrying the same pointer table.
+   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, move or
+   merge *pre-existing* `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` files — those belong
+   to the company. The one exception is belay's own `.cursor/rules/belay.mdc`, which you
+   create. Skip the backup and symlink steps above, since nothing is overwritten — which
+   also means **the `CLAUDE.md`/`AGENTS.md` symlink invariant does not hold here**, though
+   the rest of this command is written assuming it does. Write the filled template to
+   `CLAUDE.local.md` instead (Claude Code auto-loads it alongside `CLAUDE.md`),
+   complementing any existing agent docs without repeating them. If `.cursor/commands/`
+   exists, also write `.cursor/rules/belay.mdc` (frontmatter `alwaysApply: true`) carrying
+   the same pointer table.
+
+   **Bridge `AGENTS.md`, since the symlink is skipped.** Claude Code reads `CLAUDE.md`, not
+   `AGENTS.md`, so without the symlink a session never sees the company's rules at all. An
+   import does the same job and touches nothing the company owns. If
+
+   ```sh
+   [ -e AGENTS.md ] && ! [ AGENTS.md -ef CLAUDE.md ]   # -ef: already-bridged is a no-op
+   ```
+
+   then the **first line** of the `CLAUDE.local.md` you write is `@AGENTS.md`, then a blank
+   line, then the filled template — and add one line to its session reading rule naming
+   `AGENTS.md` as the company's authoritative document, already loaded by that import.
+   Every other mention of it stays backticked: import parsing skips code spans, so a bare
+   `@AGENTS.md` anywhere else is a second import. The path resolves inside the working
+   directory, so it raises no external-import approval dialog.
+
+   The carrier itself is empirical, not documented: Cursor loads `CLAUDE.local.md` (fresh
+   Cursor chat, verified 2026-08-19) but does not document doing so. If it ever stops
+   loading, re-test — do not "fix" it by moving the content elsewhere.
 
 9. **Index.** Run `scripts/build-index.sh` (it will be small; that's fine).
 
@@ -128,12 +150,15 @@ Everything this command produced is already on disk — verify it: list the file
 re-read `docs/phases/PHASES.md` to confirm the table parses (every row has id, goal,
 depends, acceptance, status), and confirm `CLAUDE.md` is under 150 lines
 (`wc -l CLAUDE.md`). Also confirm exactly one workflow variant survived step 8 —
-`grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT' CLAUDE.md` must print `0`; a hit means a template
-comment (and probably both variants) is still in the file, which the line count is too
-generous to catch. Then offer the operator a single commit of the bootstrap state
+`grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT'` over the file you actually wrote must print `0`;
+a hit means a template comment (and probably both variants) is still in the file, which the
+line count is too generous to catch. Then offer the operator a single commit of the bootstrap state
 (commit message: `chore: bootstrap workflow state`). Corporate mode: check
-`CLAUDE.local.md` instead, and skip the commit offer — the workflow state is
-deliberately invisible to git.
+`CLAUDE.local.md` instead — that is also the file the variant grep must run against, since
+grepping the company's `CLAUDE.md` passes vacuously. If `AGENTS.md` exists,
+`head -1 CLAUDE.local.md` must print `@AGENTS.md`; without it the session never sees the
+company's rules. Skip the commit offer — the workflow state is deliberately invisible to
+git.
 
 ## Failure modes
 

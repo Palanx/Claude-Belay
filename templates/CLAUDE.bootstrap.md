@@ -24,7 +24,7 @@ superseded by new rows, never edited or deleted — same rule as an ADR.
 
 ## Session reading rule
 
-Read `CLAUDE.md` (this file) + the current phase's directory
+Read this file + the current phase's directory
 (`docs/phases/<id>/spec.md`, `notes.md`) + the files the spec points to. Nothing else
 unless the spec proves insufficient — and then record the gap in the phase's `notes.md`.
 For orientation beyond the phase, load ONE section of `docs/index/`, not the whole thing.
@@ -48,7 +48,7 @@ asks, do the work directly. What still holds, every session:
 
 ## Session reading rule
 
-Read `CLAUDE.md` (this file), then ONE section of `docs/index/` for the area in question —
+Read this file, then ONE section of `docs/index/` for the area in question —
 never the whole index. `docs/constraints.md` and the ADRs before proposing anything
 structural. Nothing else unless asked.
      END LIGHTWEIGHT -->

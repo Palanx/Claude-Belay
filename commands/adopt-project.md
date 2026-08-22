@@ -234,32 +234,58 @@ behaviour — is unchanged.
    if [ -f AGENTS.md ] && [ ! -L AGENTS.md ]; then rm AGENTS.md && ln -s CLAUDE.md AGENTS.md; fi
    ```
 
-   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, move,
-   or merge `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` — those belong to the company.
-   Skip the backup and symlink steps above entirely: nothing is overwritten, so there is
-   nothing to back up. Write the filled template to `CLAUDE.local.md` instead (Claude Code
-   auto-loads it alongside `CLAUDE.md`). Read every existing agent doc first — both
-   `CLAUDE.md` and `AGENTS.md`, resolving symlinks so you don't read the same file twice —
-   so `CLAUDE.local.md` complements them without repeating them; where they contradict
-   what the code shows, record that under Contradictions in the adoption report — never
-   edit them. If `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc`
-   (frontmatter `alwaysApply: true`) carrying the same pointer table.
+   **Corporate mode** (`.claude/workflow/corporate` exists): never create, modify, move or
+   merge *pre-existing* `CLAUDE.md`, `AGENTS.md`, or `.cursor/rules/*` files — those belong
+   to the company. The one exception is belay's own `.cursor/rules/belay.mdc`, which you
+   create. Skip the backup and symlink steps above entirely: nothing is overwritten, so
+   there is nothing to back up — which also means **the `CLAUDE.md`/`AGENTS.md` symlink
+   invariant does not hold here**, though the rest of this command is written assuming it
+   does. Write the filled template to `CLAUDE.local.md` instead (Claude Code auto-loads it
+   alongside `CLAUDE.md`). Read every existing agent doc first — both `CLAUDE.md` and
+   `AGENTS.md`, resolving symlinks so you don't read the same file twice — so
+   `CLAUDE.local.md` complements them without repeating them; where they contradict what
+   the code shows, record that under Contradictions in the adoption report — never edit
+   them. If `.cursor/commands/` exists, also write `.cursor/rules/belay.mdc` (frontmatter
+   `alwaysApply: true`) carrying the same pointer table.
+
+   **Bridge `AGENTS.md`, since the symlink is skipped.** Claude Code reads `CLAUDE.md`, not
+   `AGENTS.md`, so without the symlink a session never sees the company's rules at all —
+   the failure this bridge exists to prevent. An import does the same job and touches
+   nothing the company owns. If
+
+   ```sh
+   [ -e AGENTS.md ] && ! [ AGENTS.md -ef CLAUDE.md ]   # -ef: already-bridged is a no-op
+   ```
+
+   then the **first line** of the `CLAUDE.local.md` you write is `@AGENTS.md`, then a blank
+   line, then the filled template — and add one line to its session reading rule naming
+   `AGENTS.md` as the company's authoritative document, already loaded by that import.
+   Every other mention of it stays backticked: import parsing skips code spans, so a bare
+   `@AGENTS.md` anywhere else is a second import. The path resolves inside the working
+   directory, so it raises no external-import approval dialog.
+
+   The carrier itself is empirical, not documented: Cursor loads `CLAUDE.local.md` (fresh
+   Cursor chat, verified 2026-08-19) but does not document doing so. If it ever stops
+   loading, re-test — do not "fix" it by moving the content elsewhere.
 
 ## Mandatory final step (P6)
 
 Verify the written state: `docs/adoption-report.md`, `docs/constraints.md`,
 `docs/phases/PHASES.md`, `CLAUDE.md` (< 150 lines), `.claude/workflow/toolchain.json`,
 `.claude/workflow/boundaries.rules`, `docs/index/_overview.md` all exist. Confirm exactly
-one workflow variant survived step 9 — `grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT' CLAUDE.md`
-must print `0`; a hit means a template comment (and probably both variants) is still there,
-which the line count is too generous to catch. Only once that
+one workflow variant survived step 9 — `grep -c 'LIGHTWEIGHT\|PIPELINE PROJECT'` over the
+file you actually wrote must print `0`; a hit means a template comment (and probably both
+variants) is still there, which the line count is too generous to catch. Only once that
 passes, flip the log's marker to `<!-- belay-adoption: complete -->` — the marker means
 "verified", not "the steps ran", and it is what stops the next `/adopt-project` from
 re-adopting. Print the
 "Decisions needed" section of the adoption report verbatim as your final output — those
 questions are the handoff. Offer one commit: `chore: adopt project into workflow`.
-Corporate mode: verify `CLAUDE.local.md` (< 150 lines) instead of `CLAUDE.md`, and skip
-the commit offer — the workflow state is deliberately invisible to git.
+Corporate mode: verify `CLAUDE.local.md` (< 150 lines) instead of `CLAUDE.md` — that is
+also the file the variant grep must run against, since grepping the company's `CLAUDE.md`
+passes vacuously. If `AGENTS.md` exists, `head -1 CLAUDE.local.md` must print `@AGENTS.md`;
+without it the session never sees the company's rules. Skip the commit offer — the
+workflow state is deliberately invisible to git.
 
 ## Failure modes
 
