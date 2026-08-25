@@ -589,6 +589,14 @@ for c in bootstrap-project adopt-project; do
   check "/$c picks a workflow variant" grep -q 'LIGHTWEIGHT' "$PKG/commands/$c.md"
   check "/$c asserts no template marker survives" \
     grep -q "grep -c 'LIGHTWEIGHT" "$PKG/commands/$c.md"
+  # Corporate mode skips the AGENTS.md -> CLAUDE.md symlink, so the company's rules
+  # reach Claude Code only through the @AGENTS.md import. And the same block that
+  # forbids touching .cursor/rules/* orders belay.mdc written, so it must say which
+  # one wins — twice now that paragraph has drifted into contradicting itself.
+  check "/$c corporate block bridges AGENTS.md into Claude Code" \
+    grep -qF '@AGENTS.md' "$PKG/commands/$c.md"
+  check "/$c corporate block exempts belay.mdc from the prohibition" \
+    grep -q 'exception is belay' "$PKG/commands/$c.md"
 done
 
 echo ""

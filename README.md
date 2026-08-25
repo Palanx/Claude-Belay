@@ -207,8 +207,9 @@ Code and from Cursor (`cursor-agent` or the IDE):
 - `AGENTS.md` is symlinked to `CLAUDE.md` (Cursor reads `AGENTS.md`), so there is one
   source of truth for both agents. See below for what happens when the repo already has
   agent docs. **Corporate mode does neither:** `AGENTS.md` is a company file, so no
-  symlink is created and the Cursor pointer is `.cursor/rules/belay.mdc`, written by the
-  entry command — see "Existing CLAUDE.md / AGENTS.md" below.
+  symlink is created — the entry command writes an `@AGENTS.md` import at the top of
+  `CLAUDE.local.md` instead, and the Cursor pointer is `.cursor/rules/belay.mdc`, also
+  written by the entry command — see "Existing CLAUDE.md / AGENTS.md" below.
 
 ### Gating your own commits too (`--git-hook`)
 
@@ -261,10 +262,19 @@ they land in the adoption commit — the pre-adoption doc stays as history.
 
 **Corporate mode never does any of this.** `CLAUDE.md` and `AGENTS.md` are read-only
 input in all six states: nothing is created, modified, moved, or backed up (there is
-nothing to back up — belay writes `CLAUDE.local.md`). Known gap, by design: a corporate
-install *without* `--cursor` on a repo that does use Cursor gets no `.cursor/rules/belay.mdc`,
-so Cursor only sees the company's `AGENTS.md` and never learns about the workflow — pass
-`--cursor` if that repo is driven from Cursor.
+nothing to back up — belay writes `CLAUDE.local.md`).
+
+Dropping the symlink would drop the *company's* rules on the floor: Claude Code reads
+`CLAUDE.md`, not `AGENTS.md`, so on an `AGENTS.md`-only repo a session would see neither
+file. The substitute is an import, not a symlink — when `AGENTS.md` exists and isn't
+already the same file as `CLAUDE.md`, the entry command makes `@AGENTS.md` the first line
+of `CLAUDE.local.md`. Claude Code expands it at launch, the path resolves inside the
+working directory so there is no external-import prompt, and `CLAUDE.local.md` is
+git-excluded, so no company-owned file is touched.
+
+Known gap, by design: a corporate install *without* `--cursor` on a repo that does use
+Cursor gets no `.cursor/rules/belay.mdc`, so Cursor only sees the company's `AGENTS.md` and
+never learns about the workflow — pass `--cursor` if that repo is driven from Cursor.
 
 All state (`.claude/workflow/`, `docs/`) is shared — sessions from either agent
 converge on the same files (P6/P8). Cursor's hooks are beta; if an event name or
