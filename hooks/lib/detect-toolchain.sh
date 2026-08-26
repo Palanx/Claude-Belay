@@ -14,6 +14,9 @@
 # }
 #
 # Rules:
+# - .claude/workflow/toolchain.manual.json is project-owned and is NEVER read or
+#   written here. This script rewrites its own output wholesale, so anything it
+#   touched it would eventually clobber; the merge lives in common.sh instead.
 # - Only commands that were actually found on this machine / in this repo are
 #   written. A missing category becomes a "gaps" entry, never a guess (P7).
 # - file_commands only get tools that genuinely accept a single file argument.
@@ -139,7 +142,7 @@ if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ] || ls requiremen
   STACKS+=("python")
 
   if have pytest; then append CMD_TEST "pytest -q"
-  else gap "test (python): pytest not on PATH. Fix: pip install pytest (or add your runner to toolchain.json)."
+  else gap "test (python): pytest not on PATH. Fix: pip install pytest (or add your runner to toolchain.manual.json)."
   fi
 
   PY_LINT="" PY_FMT="" PY_TC=""
@@ -273,7 +276,7 @@ else
   gap "secrets: gitleaks not on PATH — pre-commit hook falls back to builtin grep patterns (weaker). Fix: install gitleaks (https://github.com/gitleaks/gitleaks)."
 fi
 
-[ ${#STACKS[@]} -eq 0 ] && gap "stack: no known stack marker found (package.json / pyproject.toml / go.mod / Cargo.toml / ProjectSettings/ProjectVersion.txt / project.godot / *.uproject / Makefile). Fill .claude/workflow/toolchain.json commands by hand."
+[ ${#STACKS[@]} -eq 0 ] && gap "stack: no known stack marker found (package.json / pyproject.toml / go.mod / Cargo.toml / ProjectSettings/ProjectVersion.txt / project.godot / *.uproject / Makefile). Fill .claude/workflow/toolchain.manual.json by hand — this script overwrites toolchain.json on every run, that file it never touches."
 
 # ---------- Emit JSON ----------
 DETECTED_FROM="$(git rev-parse --short HEAD 2>/dev/null || echo 'no-commits')"
@@ -325,4 +328,11 @@ if [ ${#GAPS[@]} -gt 0 ]; then
   printf '  - %s\n' "${GAPS[@]}"
 else
   echo "gaps: none"
+fi
+# Not parsed, just flagged: subtracting covered gaps would mean reading the file
+# this script is defined never to open. Spelled out as an if, because
+# `[ -f ] && echo` as the last statement exits 1 under set -e whenever the file
+# is absent — which is the common case.
+if [ -f "$ROOT/.claude/workflow/toolchain.manual.json" ]; then
+  echo "note: toolchain.manual.json present — some gaps above may already be covered by it."
 fi

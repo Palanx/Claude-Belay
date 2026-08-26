@@ -14,7 +14,7 @@ allowed; the workflow must absorb it, not punish it).
 **Preconditions:** git repo with workflow state installed.
 
 **Reads:** git history, `docs/index/_overview.md` (stamp), `.claude/workflow/toolchain.json`, `docs/phases/PHASES.md`.
-**Writes:** `docs/index/` (rebuilt), `.claude/workflow/toolchain.json` (re-detected when stale), drift report to stdout (and to `docs/phases/PHASES.md` status column if phases are affected).
+**Writes:** `docs/index/` (rebuilt), `.claude/workflow/toolchain.json` (re-detected when stale — **regenerated whole**, never merged; `.claude/workflow/toolchain.manual.json` is project-owned and untouched), drift report to stdout (and to `docs/phases/PHASES.md` status column if phases are affected).
 
 ## Steps
 

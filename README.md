@@ -55,6 +55,7 @@ CLAUDE.md                          # <150 lines, pointer table — the only alwa
 ├── settings.json                  # hook wiring (PostToolUse Edit|Write, PreToolUse Bash)
 └── workflow/
     ├── toolchain.json             # detected commands per category + explicit gaps (generated)
+    ├── toolchain.manual.json      # optional: your commands, wins over detection, never regenerated
     ├── boundaries.rules           # layer + deny lines (executable form of the dependency rule)
     ├── belay-version              # package commit this install came from (stamped by install.sh)
     ├── secret-allowlist           # optional: regexes to ignore in the builtin secret scan
@@ -329,8 +330,8 @@ delete lines by hand if it gets noisy.
 ### What to customize vs leave alone
 
 **Customize (project-owned):** `.claude/workflow/boundaries.rules` (via the entry
-command + ADRs), `.claude/workflow/toolchain.json` (only to add commands detection
-missed), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
+command + ADRs), `.claude/workflow/toolchain.manual.json` (commands detection missed
+or got wrong), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
 `docs/templates/`.
 
 **Leave alone (package-owned, overwritten on re-install):** `.claude/hooks/*`,
@@ -338,6 +339,12 @@ missed), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
 (generated), and belay's own hook entries in `.claude/settings.json`. If a hook
 misbehaves, fix it in the package and re-run `install.sh`, or you'll lose the fix at the
 next upgrade.
+
+`.claude/workflow/toolchain.json` belongs in that second list for a different reason:
+the installer never touches it, but **detection rewrites it whole** — `/refresh-index`
+re-runs `detect-toolchain.sh`, which emits the file from scratch. A command added there
+by hand survives until the next re-detection and then vanishes without a word. Put it in
+`toolchain.manual.json` instead; nothing in the package writes that file.
 
 Hook *wiring* is package-owned as well: on every re-install, any entry whose command
 points into `.claude/hooks/` is dropped and replaced by the package's current wiring —
@@ -350,6 +357,40 @@ installer says so, naming the hooks that are missing.
 Corporate mode: same split, relocated — project-owned becomes `CLAUDE.local.md` and
 everything under `.belay/docs/` except `.belay/docs/templates/` and `.belay/docs/index/`;
 package-owned adds `.belay/scripts/build-index.sh`.
+
+### When your stack isn't detected
+
+`detect-toolchain.sh` recognises seven stacks by marker file (`package.json`,
+`pyproject.toml`, `go.mod`, `Cargo.toml`, `ProjectSettings/ProjectVersion.txt`,
+`project.godot`, `*.uproject`) and, inside each, a closed list of tools. It is a pool,
+not a search: a stack or a linter it has never heard of produces a `gaps` entry, not a
+guess. Three rungs, stop at the first that holds.
+
+**1. A `Makefile` with `test:` / `lint:` targets.** Already covered — detection falls
+back to `make test` / `make lint` for any category still empty, whatever the stack. The
+cheapest fix for an unrecognised stack is often a two-line Makefile.
+
+**2. `.claude/workflow/toolchain.manual.json`.** Same keys as the generated file, and
+only the ones you need. Commands here win over detected ones; `exempt` is appended to
+what detection found, not substituted for it.
+
+```json
+{
+  "commands":      { "test": "mix test", "lint": "mix credo --strict" },
+  "file_commands": { "ex": { "format": "mix format {file}" } },
+  "exempt":        ["priv/static/"]
+}
+```
+
+`commands` are project-wide and run at `/validate-phase`. `file_commands` run on every
+edit, so they must accept a single file — `{file}` is substituted, or the path is
+appended if the template has no placeholder. Nothing in the package writes this file:
+it survives `/refresh-index` and re-installing belay.
+
+**3. Upstream it.** Once the same stack shows up in a second project, a detection block
+belongs in the package rather than in two manual files that will drift. `CLAUDE.md` in
+[the belay repo](https://github.com/Palanx/Claude-Belay) has the recipe and the real
+cost of each case.
 
 ### Methodology (skills and house rules)
 
@@ -553,8 +594,9 @@ index without the pipeline is the common corporate case.
 | `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit**. Corporate mode: also blocks `git clean -x/-X` (would erase the git-excluded belay state) and blocks commits while any belay state path shows in `git status` |
 
 The two toolchain hooks (`post-edit-gate.sh`, `pre-commit-security.sh`) read
-`.claude/workflow/toolchain.json` and never skip silently: a missing tool
-category produces a loud `workflow gap:` line naming the fix (P7).
+`.claude/workflow/toolchain.json`, with `.claude/workflow/toolchain.manual.json`
+consulted first where it exists, and never skip silently: a missing tool category
+produces a loud `workflow gap:` line naming the fix (P7).
 
 **CI note (out of scope, one line):** mirror `pre-commit-security.sh` and the
 project-wide toolchain commands in CI — hooks only guard actions taken through Claude

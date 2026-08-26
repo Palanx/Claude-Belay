@@ -16,8 +16,10 @@
 #
 # Idempotent: package-owned files (commands, hooks, templates, index script)
 # are overwritten on re-install; project-owned files (boundaries.rules,
-# toolchain.json, CLAUDE.md, docs/*) are never clobbered. Hook *wiring* is
-# package-owned too: belay's own entries in settings.json are replaced on every
+# toolchain.manual.json, CLAUDE.md, docs/*) are never clobbered. toolchain.json
+# is not clobbered here either, but detection rewrites it whole on every
+# /refresh-index — hand-written commands belong in toolchain.manual.json.
+# Hook *wiring* is package-owned too: belay's own entries in settings.json are replaced on every
 # re-install (see rewire()), so a hook added to the package reaches projects
 # that are already installed. Entries the project added itself survive.
 set -euo pipefail

@@ -94,7 +94,7 @@ anything else. Changing a boundary rule requires a superseding ADR, never a sile
 | Phase index & status | `docs/phases/PHASES.md` |
 | Current phase spec / notes | `docs/phases/<id>/spec.md`, `docs/phases/<id>/notes.md` |
 | Repo map & module symbols | `docs/index/_overview.md`, then one `docs/index/<module>.md` |
-| Test/lint/typecheck commands | `.claude/workflow/toolchain.json` |
+| Test/lint/typecheck commands | `.claude/workflow/toolchain.json` (+ `toolchain.manual.json`, which wins) |
 | Layer boundary rules | `.claude/workflow/boundaries.rules` |
 | Security review reports | `docs/security/` |
 | Workflow templates | `docs/templates/` |

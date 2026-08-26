@@ -408,6 +408,18 @@ check "typecheck absent from commands (nothing invented)" \
   bash -c 'test "$(jq -r ".commands.typecheck // \"absent\"" "$1/.claude/workflow/toolchain.json")" = absent' \
   _ "$L"
 
+# The manual file is project-owned: re-detection must not read, rewrite or delete
+# it. The byte-identical assert is a forward guard — the detector does not open
+# the file today, so it cannot fail against the commit that introduced it; it is
+# here to catch a later refactor that makes detection "merge" the manual file.
+printf '{ "commands": { "test": "my-custom-runner" } }\n' >"$L/.claude/workflow/toolchain.manual.json"
+MANUAL_BEFORE="$(cat "$L/.claude/workflow/toolchain.manual.json")"
+(cd "$L" && CLAUDE_PROJECT_DIR="$L" "$PKG/hooks/lib/detect-toolchain.sh") >"$TMP/tc2.log" 2>&1
+check "re-detection leaves toolchain.manual.json byte-identical" \
+  bash -c 'test "$(cat "$1")" = "$2"' _ "$L/.claude/workflow/toolchain.manual.json" "$MANUAL_BEFORE"
+check "re-detection reports that a manual file is in play" \
+  grep -q 'toolchain.manual.json present' "$TMP/tc2.log"
+
 # ========================= edit-gate behaviour ===============================
 # Formatters all write in place, so a successful format leaves the file on disk
 # different from what was just written — silently, until a later edit fails to
@@ -436,6 +448,45 @@ gate && bad "lint failure still reported when the file was also reformatted" \
      || ok "lint failure still reported when the file was also reformatted"
 check "combined report leads with the gate failure" grep -q 'POST-EDIT GATE FAILED' "$TMP/gate.err"
 check "combined report also mentions the reformat" grep -q 'formatter also rewrote' "$TMP/gate.err"
+
+# --- toolchain.manual.json ---------------------------------------------------
+# detect-toolchain.sh rewrites toolchain.json wholesale on every /refresh-index,
+# so a command hand-added there was silently lost while the README called the
+# file project-owned. The manual file is the durable half: the detector never
+# opens it, and common.sh consults it before the generated one.
+tcmanual() { printf '%s\n' "$1" >"$M/.claude/workflow/toolchain.manual.json"; }
+gatef() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/%s"}}' "$M" "$1" \
+          | CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" 2>"$TMP/gate.err"; }
+
+# Supplies a tool detection missed entirely: without it this file has no gates.
+printf '{ "stacks": ["fake"], "commands": {}, "file_commands": {}, "exempt": [], "gaps": [] }\n' \
+  >"$M/.claude/workflow/toolchain.json"
+tcmanual '{ "file_commands": { "js": { "format": "echo manual-fmt >>" } } }'
+gate && bad "manual file supplies a formatter detection missed" \
+     || ok "manual file supplies a formatter detection missed"
+check "the manual formatter ran, instead of a gap warning" \
+  bash -c 'grep -q "REFORMATTED ON DISK" "$1" && ! grep -q "workflow gap" "$1"' _ "$TMP/gate.err"
+
+# Same ext + category in both files: the manual one wins.
+tcjson '"true"' '"true"'   # detected formatter is a no-op, so only manual rewrites
+tcmanual '{ "file_commands": { "js": { "format": "echo manual-fmt >>" } } }'
+gate && bad "manual command overrides the detected one" \
+     || ok "manual command overrides the detected one"
+check "the command that ran is the manual one, not the detected no-op" \
+  grep -q 'REFORMATTED ON DISK' "$TMP/gate.err"
+
+# exempt is a list: manual APPENDS to detection, it does not replace it.
+printf '{ "stacks": ["fake"], "commands": {}, "file_commands": { "js": { "lint": "false" } }, "exempt": ["vendor/"], "gaps": [] }\n' \
+  >"$M/.claude/workflow/toolchain.json"
+tcmanual '{ "exempt": ["thirdparty/"] }'
+mkdir -p "$M/vendor" "$M/thirdparty"
+printf 'let y = 1\n' >"$M/vendor/c.js"
+printf 'let z = 1\n' >"$M/thirdparty/b.js"
+gatef thirdparty/b.js && ok "manual exempt prefix is honoured" \
+                      || bad "manual exempt prefix is honoured"
+gatef vendor/c.js && ok "detected exempt prefix survives the append" \
+                  || bad "detected exempt prefix survives the append"
+rm -f "$M/.claude/workflow/toolchain.manual.json"
 
 # No jq and no python3: the gates must say they did not run, not exit 0.
 NOJSON="$TMP/nojson"
@@ -578,6 +629,17 @@ while IFS= read -r sec; do
 done <<<"$refs"
 check "every §section referenced by a command or template exists in constraints.md" test -z "$missing"
 [ -z "$missing" ] || echo "    missing sections:$missing"
+# gap_warn is the entry point to hand-configuration: it is what an operator reads
+# when a gate has no tool. The file it names must be the one the README calls
+# project-owned, or the message sends people to a file re-detection overwrites —
+# which is exactly the bug this assert was written for.
+gapfile="$(grep 'workflow gap:' "$PKG/hooks/lib/common.sh" \
+           | grep -oE '\.claude/workflow/[A-Za-z.]+\.json' | head -1)"
+check "gap_warn names a workflow file to edit" test -n "$gapfile"
+check "the file gap_warn points at is listed as project-owned in the README" \
+  bash -c 'grep -A4 "^\*\*Customize (project-owned):\*\*" "$1/README.md" | grep -qF "$2"' \
+  _ "$PKG" "$gapfile"
+
 # requirements.md is bootstrap-only, so every reference must tolerate its absence.
 check "plan-feature guards its requirements.md read with 'if present'" \
   grep -q 'requirements.md` \*\*if present\*\*' "$PKG/commands/plan-feature.md"

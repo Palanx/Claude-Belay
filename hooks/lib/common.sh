@@ -6,6 +6,7 @@
 # then these are available:
 #   $ROOT        project root ($CLAUDE_PROJECT_DIR, falling back to $PWD)
 #   $TOOLCHAIN   path to .claude/workflow/toolchain.json (may not exist)
+#   $MANUAL      path to .claude/workflow/toolchain.manual.json (may not exist)
 #   $HOOK_INPUT  raw stdin JSON from Claude Code
 #   json_get, json_file_get, tc_cmd, tc_file_cmd, tc_exempt_prefixes, gap_warn, run_on_file
 #
@@ -18,6 +19,11 @@ set -u
 hook_init() {
   ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
   TOOLCHAIN="$ROOT/.claude/workflow/toolchain.json"
+  # Project-owned half of the toolchain. detect-toolchain.sh rewrites
+  # toolchain.json wholesale on every re-detection, so anything hand-added there
+  # is lost at the next /refresh-index. The detector never opens this file — it
+  # cannot clobber what it does not read — and every accessor below prefers it.
+  MANUAL="$ROOT/.claude/workflow/toolchain.manual.json"
   HOOK_INPUT="$(cat)"
 }
 
@@ -61,27 +67,44 @@ json_file_get() {
 }
 
 # tc_cmd <category> — project-wide command for a toolchain category
-# (test | typecheck | audit | secrets). Empty if unconfigured.
+# (test | typecheck | audit | secrets). Manual wins over detected. Empty if
+# unconfigured in both.
 tc_cmd() {
+  local v=""
+  # Each read is guarded: json_file_get redirects from the path, so an absent
+  # file would be a shell error on stderr, not an empty string.
+  [ -f "$MANUAL" ] && v="$(json_file_get "$MANUAL" ".commands.$1")"
+  [ -n "$v" ] && { printf '%s' "$v"; return 0; }
   [ -f "$TOOLCHAIN" ] || return 0
   json_file_get "$TOOLCHAIN" ".commands.$1"
 }
 
 # tc_file_cmd <ext> <category> — per-file command template for a file extension
-# (lint | format | typecheck). May contain {file}. Empty if unconfigured.
+# (lint | format | typecheck). May contain {file}. Manual wins over detected.
+# Empty if unconfigured in both.
 tc_file_cmd() {
+  local v=""
+  [ -f "$MANUAL" ] && v="$(json_file_get "$MANUAL" ".file_commands.$1.$2")"
+  [ -n "$v" ] && { printf '%s' "$v"; return 0; }
   [ -f "$TOOLCHAIN" ] || return 0
   json_file_get "$TOOLCHAIN" ".file_commands.$1.$2"
 }
 
-# tc_exempt_prefixes — newline-separated path prefixes from toolchain.json's
-# "exempt" array (engine-owned / third-party trees the edit gates must skip).
+# tc_exempt_prefixes — newline-separated path prefixes from the "exempt" arrays
+# (engine-owned / third-party trees the edit gates must skip).
+# Unlike the command accessors this APPENDS rather than overrides: exempt is a
+# list, and a project adding one tree never means dropping the detected ones.
 tc_exempt_prefixes() {
-  [ -f "$TOOLCHAIN" ] || return 0
+  _exempt_from "$TOOLCHAIN"
+  _exempt_from "$MANUAL"
+}
+
+_exempt_from() { # _exempt_from <json-file>
+  [ -f "$1" ] || return 0
   if command -v jq >/dev/null 2>&1; then
-    jq -r '(.exempt // [])[]' "$TOOLCHAIN" 2>/dev/null
+    jq -r '(.exempt // [])[]' "$1" 2>/dev/null
   elif command -v python3 >/dev/null 2>&1; then
-    python3 - "$TOOLCHAIN" <<'PY'
+    python3 - "$1" <<'PY'
 import json, sys
 try:
     data = json.load(open(sys.argv[1]))
@@ -97,7 +120,7 @@ PY
 # The loud version of skipping: the operator and the agent both see exactly
 # which gate did not run and why. Never skip silently (P7).
 gap_warn() {
-  echo "workflow gap: no '$1' tool configured — $2 was NOT checked. Fix: run /adopt-project (re-detect) or add the command to .claude/workflow/toolchain.json." >&2
+  echo "workflow gap: no '$1' tool configured — $2 was NOT checked. Fix: run /adopt-project (re-detect), or add the command to .claude/workflow/toolchain.manual.json — the project-owned file re-detection never overwrites." >&2
 }
 
 # run_on_file "<template>" <file> — runs a toolchain command against one file.
