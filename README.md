@@ -588,3 +588,20 @@ shipped `CLAUDE.md` already says decisions that constrain the future get an ADR 
 the agent works. A `/decide` command would be an abstraction with two call sites and no gate
 behind it. If the practice proves otherwise, the evidence will be answered questions sitting
 in `adoption-report.md` with no matching ADR; that is the signal to build it, not before.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
+
+Worth stating explicitly because of how this package is used: `install.sh` **copies**
+package-owned files into your repository — `.claude/hooks/`, `.claude/commands/`,
+`docs/templates/`, `scripts/build-index.sh`, and the Cursor mirrors under `.cursor/`
+(all relocated under `.belay/` in a corporate install). Those copies carry MIT with them
+into whatever repository they land in, including a private or corporate one. Re-run the
+installer and they are replaced; the license on them does not change.
+
+Everything the copies then *produce* is yours and is not covered by this license: your
+`CLAUDE.md`, `docs/product/`, ADRs, phase specs and notes, `constraints.md`,
+`boundaries.rules`, `toolchain.json`, the generated index. The split is not a judgment
+call — `.claude/workflow/installed` records every path the installer wrote, so that file
+is the exact list of what arrived under MIT. Anything not in it, belay did not put there.
