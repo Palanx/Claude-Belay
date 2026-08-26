@@ -510,6 +510,31 @@ runners, GUI-authored assets) or simply had to be done by hand. Common in corpor
 where much of the code is human-written; without it such a phase can never reach `done`,
 because `notes.md` — `/validate-phase`'s precondition — has exactly one writer.
 
+**Working from a written plan.** A human implementing a phase reads a spec written for a
+cold session: dense, pointer-based, verification batched at the end. Expanding it into
+numbered steps to execute over days is reasonable, under one rule — the spec stays the
+authority. `/validate-phase` judges the diff against `spec.md`, never against a derived
+plan, so the derivation runs one way and the plan is disposable: when reality diverges,
+amend the spec and regenerate the plan whole rather than patching the plan to match. A
+half-regenerated plan is the second, drifting document `docs/templates/spec.md` already
+tells you not to create.
+
+The byproduct is the useful part. Anything the plan had to invent to be executable — a
+file it went looking for, an ordering constraint, a check the spec never stated — is a
+missing Context pointer. Found here it is nearly free: the phase is still `expanded`,
+nothing has been built against the old spec and no `notes.md` exists yet, so the fix is an
+edit and a regenerated plan. The same gap found later arrives as an `undecidable` verdict
+in `/validate-phase` step 5, and by then the amendment travels with the `notes.md`
+Deviations entry that every mid-implementation spec change requires — the command files
+carry that rule. Pedagogy is not a gap: how a person physically performs a step belongs in
+the plan and nowhere else, and moving it into the spec only bloats the starved reviewer's
+input.
+
+Nothing here ships with the package and nothing looks for it. One implementation is the
+`planning` skill in [Palanx/Claude-Configs](https://github.com/Palanx/Claude-Configs);
+like any skill it lives in a home directory, so *Methodology* above applies — it is yours,
+not the repo's.
+
 **One obligation:** the index only maintains itself when Claude edits. Since most
 changes are yours, run `/refresh-index` (or `scripts/build-index.sh --check` — under
 `.belay/scripts/` in a corporate install — to test staleness) after hand-made changes of
