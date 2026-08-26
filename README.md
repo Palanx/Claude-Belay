@@ -2,7 +2,7 @@
 
 [![test](https://github.com/Palanx/Claude-Belay/actions/workflows/test.yml/badge.svg)](https://github.com/Palanx/Claude-Belay/actions/workflows/test.yml)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-workflow%20package-D97757?logo=anthropic&logoColor=white)](https://claude.com/claude-code)
-[![Shell](https://img.shields.io/badge/shell-bash-4EAA25?logo=gnubash&logoColor=white)](install.sh)
+[![Shell](https://img.shields.io/badge/shell-bash%20%E2%89%A5%204-4EAA25?logo=gnubash&logoColor=white)](install.sh)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#installing)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/Palanx/Claude-Belay/pulls)
 
@@ -86,6 +86,10 @@ right paths — only paths *you* type by hand need translating. Where a differen
 than a prefix, the section says so.
 
 ## Installing
+
+**Requires bash 4 or newer**, plus `git` and `jq` (or `python3`). Stock macOS ships bash
+3.2, which cannot run the installer — `brew install bash` and make sure it comes first on
+`PATH`. Linux distributions have shipped bash 4+ for over a decade.
 
 ### Into a new (empty or nearly-empty) repo
 

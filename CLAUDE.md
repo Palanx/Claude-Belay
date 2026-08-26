@@ -105,8 +105,12 @@ generalized from a private repo gets audited before it lands, examples included.
 
 ## Conventions
 
-- Bash, `set -euo pipefail`, must work on macOS and Linux. Hooks fail **closed**
-  with no JSON parser available — never exit 0 as if they had run.
+- Bash **4 or newer**, `set -euo pipefail`, must work on macOS and Linux. Stock
+  macOS ships bash 3.2 and belay does not target it: 3.2 cannot even parse
+  `install.sh` (an apostrophe in a comment inside `$( )` opens a quote there).
+  Do not contort the source to accommodate it — the CI macOS job installs a
+  modern bash, which is where that problem belongs. Hooks fail **closed** with
+  no JSON parser available — never exit 0 as if they had run.
 - Deliberate shortcuts are marked `belay-debt:` with the ceiling and the upgrade
   path. Not `TODO`.
 - Commits: Conventional Commits.

@@ -18,7 +18,23 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      # macOS still ships bash 3.2, which belay does not target. The runner is
+      # what adapts, not the package: nothing here is written to parse under a
+      # shell from 2007.
+      - name: Install a modern bash (macOS ships 3.2)
+        if: runner.os == 'macOS'
+        run: brew install bash
+
+      # Fail here, loudly, rather than deep inside the suite with a syntax error
+      # pointing at an innocent line.
+      - name: Assert bash is 4 or newer
+        run: |
+          bash --version | head -1
+          major="$(bash -c 'echo ${BASH_VERSINFO[0]}')"
+          [ "$major" -ge 4 ] || { echo "need bash >= 4, got $major" >&2; exit 1; }
+
       # jq is a hard requirement of the suite and python3 is used by the hooks;
       # both are preinstalled on GitHub's ubuntu and macos runners. No install
       # step until a run actually fails for a missing tool.
-      - run: ./tests/corporate-smoke.sh
+      - run: bash ./tests/corporate-smoke.sh
