@@ -24,11 +24,15 @@ per ADR-0004. Uses the fixed-window counter store built in phase 05.
 
 ## Plan
 
-1. Add `RateLimitError` (extends AppError, code `RATE_LIMITED`, status 429) — touches `src/lib/app-error.js`
-2. Write the middleware: read `req.apiKey`, call `hitAndCount(key, window)`, attach RateLimit headers, throw `RateLimitError` when `count > limit` (global default limit from config for now — per-key limits are phase 07) — touches `src/middleware/rate-limit.js` (new)
-3. Mount after auth, before routes — touches `src/app.js`
-4. Map `RATE_LIMITED` to include headers on the error response — touches `src/middleware/error.js`
-5. Integration tests per acceptance criteria — touches `test/middleware/rate-limit.test.js` (new)
+<!-- Each step carries its own check, so the repo is left working at every step
+     boundary — an agent fixes a break one step after causing it, and a human
+     driving this by hand knows where it is safe to stop for the day. -->
+
+1. Add `RateLimitError` (extends AppError, code `RATE_LIMITED`, status 429) — touches `src/lib/app-error.js` — check: `node -e "const {RateLimitError}=require('./src/lib/app-error');console.log(new RateLimitError().status)"` → prints `429`
+2. Write the middleware: read `req.apiKey`, call `hitAndCount(key, window)`, attach RateLimit headers, throw `RateLimitError` when `count > limit` (global default limit from config for now — per-key limits are phase 07) — touches `src/middleware/rate-limit.js` (new) — check: `npx eslint src/middleware/rate-limit.js` → exit 0 (not mounted yet; nothing else can break)
+3. Mount after auth, before routes — touches `src/app.js` — check: `node --test test/middleware/auth.test.js` → exit 0, the existing stack still serves requests with the new middleware in the chain
+4. Map `RATE_LIMITED` to include headers on the error response — touches `src/middleware/error.js` — check: `node --test test/` → exit 0, no other error mapping regressed
+5. Integration tests per acceptance criteria — touches `test/middleware/rate-limit.test.js` (new) — check: `node --test test/middleware/rate-limit.test.js` → exit 0
 
 ## Acceptance criteria
 

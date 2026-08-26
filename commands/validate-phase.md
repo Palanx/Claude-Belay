@@ -16,6 +16,16 @@ marked `done` is load-bearing for every phase that depends on it.
 **Reads:** `docs/phases/$1/spec.md` + `notes.md`, `.claude/workflow/toolchain.json`, `docs/phases/PHASES.md`.
 **Writes:** `docs/phases/$1/notes.md` (validation record appended), `docs/phases/PHASES.md` (status → `done` on pass only).
 
+**The phase's file set and diff** — defined once here, used by steps 3, 5 and 6. Default:
+the working tree — `git status --porcelain` and `git diff` (run `git add -N` first so files
+new in this phase diff as something rather than nothing) — unioned with the files the
+spec's Plan names. **If `notes.md` records a `- base: <ref>` line** under Outcome (written
+by `/implement-phase --implemented`; the literal `working tree` means the default applies),
+use `git diff <ref>..HEAD` and `git diff --name-only <ref>..HEAD` instead, same union.
+Never fall back to the Plan alone: the file the Plan never named is exactly what step 6
+exists to catch, so a diff that cannot show it turns three gates into no-ops that report
+`pass`.
+
 ## Steps
 
 1. **Acceptance criteria.** Run every command in the spec's Acceptance criteria section,
@@ -28,8 +38,8 @@ marked `done` is load-bearing for every phase that depends on it.
    per-file edit hook cannot see). For any category listed in `gaps`, print the gap
    warning verbatim: an unchecked category is stated, never silent (P7).
 
-3. **Boundary sweep.** For every source file this phase touched (from the spec plan and
-   git status/diff), verify no line violates `.claude/workflow/boundaries.rules` — the
+3. **Boundary sweep.** For every source file in the phase's file set (defined above),
+   verify no line violates `.claude/workflow/boundaries.rules` — the
    same check the edit hook does, re-run as a batch in case any edit path bypassed it.
    **Corporate mode** (`.claude/workflow/corporate` exists): also verify no belay state
    path appears in `git status --porcelain` — no line matching
@@ -45,8 +55,9 @@ marked `done` is load-bearing for every phase that depends on it.
 
 5. **Independent spec review.** Only once 1–4 are clean — never review code the cheap gates
    already reject. Dispatch ONE subagent with exactly three inputs: `CLAUDE.md`
-   (`CLAUDE.local.md` in corporate mode), `docs/phases/$1/spec.md`, and the diff over step 3's
-   file set (`git add -N` first, or files new in this phase diff as nothing). Nothing else —
+   (`CLAUDE.local.md` in corporate mode), `docs/phases/$1/spec.md`, and the phase's diff
+   restricted to step 3's file set (defined above — that definition is what makes this work
+   on code the operator already committed). Nothing else —
    not `notes.md`, not the dependency notes, not your summary. Starve it deliberately: the
    instinct to be helpful destroys the property under test, because a reviewer who knows what
    you meant cannot see that the spec never said it. Ask for two verdicts only:
@@ -65,7 +76,7 @@ marked `done` is load-bearing for every phase that depends on it.
 
 6. **Closure test (P5).** Check the record, not just the code:
    - notes.md has all four sections (Outcome, Deviations, Debt, For later phases), none blank — `None` is an entry, blank is a violation.
-   - Every file modified (git diff) is reachable from the spec's Context pointers or Plan. A file changed but never named in the spec = the phase escaped its scope: closure test FAILED. Record it in notes.md Deviations, flag it in your report, and name it in the spec's Plan before re-running — the spec has to describe the change that actually happened.
+   - Every file in the phase's file set is reachable from the spec's Context pointers or Plan. A file changed but never named in the spec = the phase escaped its scope: closure test FAILED. Record it in notes.md Deviations, flag it in your report, and name it in the spec's Plan before re-running — the spec has to describe the change that actually happened.
    - An `undecidable` finding from step 5 IS a missing pointer, found from outside your own head: closure test FAILED; record what the reviewer could not resolve in notes.md Deviations.
    - If notes.md Deviations reports missing pointers, mark the closure test FAILED even if the code passes — the *next* phase pays for it; the operator must know the cuts are drifting.
 
@@ -94,6 +105,7 @@ back, or the next session guesses.
 ## Failure modes
 
 - **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3); if you're on iteration 3+, the spec is wrong — stop and say so, and route it: a wrong *spec* is re-expanded (status back to `pending`, `/expand-phase $1`), a wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
+- **The code was written by a human** (`/implement-phase --implemented`) → nothing here changes: every gate above judges the code and the record, not the author. If anything the independent review is *stronger*, because the reviewer cannot be told what the human meant — but it is also the first gate this code meets at all, since the edit-time hooks only see edits made through the agent. Read step 2's and step 3's output as new information, not as a re-check.
 - **Review verdicts split by consequence** — `contradicts` is a code bug (the loop above); `undecidable` is a spec bug, so the fix is a pointer in spec.md (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
 - **Everything passes but the closure test** → still a failure: status stays `in-progress`. The code may well be right; the *record* isn't, and the next phase is what pays for that. It is also the cheapest failure here to clear, so clear it rather than arguing with it: name the stray file in the spec's Plan, or add the pointer the reviewer could not resolve, then write the Deviations entry that any spec amendment requires and re-run. A phase marked `done` asserts that a cold session can rebuild its context from the spec — that is exactly what the closure test measures, so `done` on a failed closure test would make the word mean nothing.
 

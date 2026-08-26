@@ -583,6 +583,34 @@ check "plan-feature guards its requirements.md read with 'if present'" \
   grep -q 'requirements.md` \*\*if present\*\*' "$PKG/commands/plan-feature.md"
 check "adopt-project states it never writes requirements.md" \
   grep -q 'adoption never writes one' "$PKG/commands/adopt-project.md"
+# Human-implemented phases. The flag must be documented in the prose Arguments
+# section, not only in argument-hint: Cursor ignores the frontmatter and appends
+# arguments as text instead of substituting $1, so a frontmatter-only flag is
+# invisible from .cursor/commands/. And /validate-phase must build its diff from
+# the recorded base ref — work the operator already committed shows an empty
+# working-tree diff, which would pass the boundary sweep, the independent review
+# and the closure test having examined nothing.
+check "/implement-phase documents --implemented in its Arguments section" \
+  bash -c 'sed -n "/^\*\*Arguments:\*\*/,/^$/p" "$1" | grep -q -- "--implemented"' \
+  _ "$PKG/commands/implement-phase.md"
+check "/implement-phase --implemented writes no source" \
+  grep -q 'Do not touch source' "$PKG/commands/implement-phase.md"
+check "/validate-phase diffs against a recorded base ref, not just the working tree" \
+  grep -q 'base: <ref>' "$PKG/commands/validate-phase.md"
+check "/validate-phase defines the file set before the subagent step" \
+  bash -c 'test "$(grep -n "phase.s file set" "$1" | head -1 | cut -d: -f1)" -lt \
+           "$(grep -n "Dispatch ONE subagent" "$1" | cut -d: -f1)"' \
+  _ "$PKG/commands/validate-phase.md"
+# Every Plan step in the spec template and its example carries its own check, so
+# the repo is left working at each step boundary (a human can stop; an agent
+# converges in small loops instead of batching failure to the end).
+check "spec template requires a per-step check in the Plan" \
+  grep -q 'check: ' "$PKG/templates/spec.md"
+check "spec example demonstrates per-step checks" \
+  bash -c 'test "$(sed -n "/^## Plan/,/^## Acceptance/p" "$1" | grep -c -- "— check: ")" -ge 3' \
+  _ "$PKG/templates/spec.example.md"
+check "spec template rejects a separate generated plan document" \
+  grep -q 'never authoritative' "$PKG/templates/spec.md"
 # Both CLAUDE templates ship both workflow variants; the entry commands must both
 # pick one, and must both assert no template marker survives.
 for c in bootstrap-project adopt-project; do

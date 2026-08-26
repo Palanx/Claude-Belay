@@ -436,7 +436,7 @@ not proceed to real work.
 | `/adopt-project` | Existing-codebase entry point — infer stack, layering, conventions and decisions from the code. Resumable: re-run it after a session runs out of context and it continues where it stopped | same as bootstrap, plus `adoption-report.md` (progress log + contradictions + decisions needed); ADRs are marked `reconstructed` |
 | `/plan-feature <description>` | Feature request → rows in the phase index. Converges on the scope edge and non-goals first, and records them. Stops if the feature contradicts a recorded ADR | `docs/phases/PHASES.md` (feature section: blurb + rows, status `pending`) |
 | `/expand-phase <phase-id>` | One index row → a full spec, written *just in time*, absorbing what the dependency phases revealed | `docs/phases/<id>/spec.md`; status → `expanded` |
-| `/implement-phase <phase-id>` | Do exactly that phase against its spec, inside the hooks | the source files in the spec's Plan, `docs/phases/<id>/notes.md`; status → `in-progress` |
+| `/implement-phase <phase-id> [--implemented]` | Do exactly that phase against its spec, inside the hooks. `--implemented`: the operator wrote the code by hand — skip implementation, interview for the record, so the phase can still be validated | the source files in the spec's Plan (none with `--implemented`), `docs/phases/<id>/notes.md`; status → `in-progress` |
 | `/validate-phase <phase-id>` | Run the spec's acceptance criteria, the project-wide gates, an independent review by a subagent that sees only the spec and the diff, and the closure test | validation record appended to `notes.md`; status → `done` **only** on a clean pass |
 | `/refresh-index` | Rebuild the repo index, re-detect the toolchain, report doc/code drift | `docs/index/`, `toolchain.json` |
 | `/security-check [path]` | Advisory security review — the reasoning companion to the enforced commit gate | `docs/security/review-<date>.md` |
@@ -501,6 +501,14 @@ ADRs (record the decisions you make by hand so Claude stops proposing against th
 **Skip:** `/plan-feature → /expand-phase → /implement-phase → /validate-phase`. For
 small asks, plain prompts are enough — the hooks still fire. The pipeline stays
 installed; pick it up the day you hand over a full feature.
+
+**Not the same as `--implemented`.** Lightweight mode opts out of the pipeline;
+`/implement-phase <id> --implemented` stays *inside* it for a phase whose code a human
+wrote — the spec, the gates and `done` all still apply, only the typing was manual. Use it
+when the pipeline is right but the work isn't reachable from a shell (Editor-bound test
+runners, GUI-authored assets) or simply had to be done by hand. Common in corporate repos,
+where much of the code is human-written; without it such a phase can never reach `done`,
+because `notes.md` — `/validate-phase`'s precondition — has exactly one writer.
 
 **One obligation:** the index only maintains itself when Claude edits. Since most
 changes are yours, run `/refresh-index` (or `scripts/build-index.sh --check` — under

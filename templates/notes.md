@@ -7,6 +7,10 @@
 
 ## Outcome
 
+<!-- /implement-phase --implemented also writes a `- base: <ref>` line here (the
+     commit the phase started from, or `working tree`). /validate-phase reads it
+     to build its diff, so committed work is still reviewable. -->
+
 {{What exists now that didn't before: files created/changed, behavior added.
 Written for a reader who saw none of the work happen.}}
 
