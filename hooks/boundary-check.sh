@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# PostToolUse hook (matcher: Edit|Write).
-# Architectural boundary check: flags import-ish lines in an edited file that
-# reference a layer its own layer is forbidden from depending on.
+# Gate: architectural boundary check on one file.
+#
+#   boundary-check.sh <file>
+#
+# Flags import-ish lines that reference a layer this file's own layer is
+# forbidden from depending on. Takes a path, returns an exit code — no payload,
+# no stdin. See post-edit-gate.sh for the gate/adapter split.
 #
 # Rules file: .claude/workflow/boundaries.rules
 #   layer <name> <dir-prefix>/     (e.g.  layer domain src/domain/)
@@ -14,19 +18,12 @@
 # matters to you. Upgrade path: dependency-cruiser (js), import-linter (py).
 set -u
 . "$(dirname "$0")/lib/common.sh"
-hook_init
+tc_init
 
 RULES="$ROOT/.claude/workflow/boundaries.rules"
 [ -f "$RULES" ] || exit 0
 
-# No jq/python3 — same fail-closed stance as the other gates: say it reached
-# Claude, don't exit 0 as if the layering had been checked (P7). Note this is
-# only reached when boundaries.rules exists, i.e. the project wants the check.
-FILE="$(json_get .tool_input.file_path)" || {
-  echo "BOUNDARY CHECK DID NOT RUN: no jq or python3 on PATH to read the hook input, so the file you just edited was NOT checked against boundaries.rules. Install jq or python3." >&2
-  exit 2
-}
-[ -n "$FILE" ] || FILE="$(json_get .file_path)"   # Cursor payload shape (via cursor-adapter.sh)
+FILE="${1:-}"
 [ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 case "$FILE" in
   "$ROOT"/*) REL="${FILE#"$ROOT"/}" ;;

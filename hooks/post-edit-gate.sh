@@ -1,24 +1,23 @@
 #!/usr/bin/env bash
-# PostToolUse hook (matcher: Edit|Write).
-# Runs format + lint + (file-scoped) typecheck on the file that was just edited.
+# Gate: format + lint + (file-scoped) typecheck on one file.
 #
-# PostToolUse cannot block — the edit has already happened. Exit 2 sends stderr
-# back to Claude, which fixes the file in the same turn. That is the design
-# (P3): wrong output is caught cheaply and immediately, not prevented.
-# Project-wide gates (full test suite, tsc, clippy) run in /validate-phase.
+#   post-edit-gate.sh <file>
+#
+# Takes a path and returns an exit code. It parses no payload and reads no
+# stdin: agent surfaces reach it through edit-gate-adapter.sh, while
+# scripts/check.sh and the git pre-commit hook call it directly. One gate, many
+# callers — the callers adapt to the gate, never the reverse.
+#
+# Nothing here can prevent a bad edit; by the time an agent surface calls this,
+# the write already happened. Exit 2 returns stderr to the caller, which is how
+# Claude fixes the file in the same turn. That is the design (P3): wrong output
+# is caught cheaply and immediately, not prevented. Project-wide gates (full
+# test suite, tsc, clippy) run in scripts/check.sh.
 set -u
 . "$(dirname "$0")/lib/common.sh"
-hook_init
+tc_init
 
-# No jq/python3: common.sh has already said so on stderr, but exiting 0 here
-# would leave the gate silently not-run, which is the one thing P7 forbids —
-# and pre-commit-security.sh fails closed on the identical condition. Exit 2 so
-# the message actually reaches Claude instead of dying in an ignored stream.
-FILE="$(json_get .tool_input.file_path)" || {
-  echo "POST-EDIT GATE DID NOT RUN: no jq or python3 on PATH to read the hook input, so the file you just edited was NOT formatted, linted or typechecked. Install jq or python3." >&2
-  exit 2
-}
-[ -n "$FILE" ] || FILE="$(json_get .file_path)"   # Cursor payload shape (via cursor-adapter.sh)
+FILE="${1:-}"
 [ -n "$FILE" ] && [ -f "$FILE" ] || exit 0
 
 case "$FILE" in
@@ -107,7 +106,7 @@ if [ -n "$fails" ]; then
   {
     echo "POST-EDIT GATE FAILED: $REL"
     echo "Fix every issue below in this file now, before continuing with the task."
-    echo "The same checks re-run automatically on your next edit."
+    echo "The same checks re-run on the next edit to this file."
     [ "$reformatted" -eq 1 ] && echo "NOTE: the formatter also rewrote this file — re-read it before editing, or your next edit will not match."
     echo "$fails"
   } >&2

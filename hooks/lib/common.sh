@@ -2,7 +2,8 @@
 # Shared helpers for workflow hooks. Sourced by the hook scripts, never executed.
 #
 # Contract:
-#   source common.sh; hook_init
+#   source common.sh; hook_init          (hooks: adds $HOOK_INPUT and json_get)
+#   source common.sh; tc_init            (CLI callers: everything except those two)
 # then these are available:
 #   $ROOT        project root ($CLAUDE_PROJECT_DIR, falling back to $PWD)
 #   $TOOLCHAIN   path to .claude/workflow/toolchain.json (may not exist)
@@ -16,7 +17,8 @@
 
 set -u
 
-hook_init() {
+# tc_init — resolve project paths only. Safe for CLI callers: reads no stdin.
+tc_init() {
   ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
   TOOLCHAIN="$ROOT/.claude/workflow/toolchain.json"
   # Project-owned half of the toolchain. detect-toolchain.sh rewrites
@@ -24,6 +26,10 @@ hook_init() {
   # is lost at the next /refresh-index. The detector never opens this file — it
   # cannot clobber what it does not read — and every accessor below prefers it.
   MANUAL="$ROOT/.claude/workflow/toolchain.manual.json"
+}
+
+hook_init() {
+  tc_init
   HOOK_INPUT="$(cat)"
 }
 

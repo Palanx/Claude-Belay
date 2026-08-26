@@ -1,5 +1,6 @@
 # Claude Belay
 
+[![test](https://github.com/Palanx/Claude-Belay/actions/workflows/test.yml/badge.svg)](https://github.com/Palanx/Claude-Belay/actions/workflows/test.yml)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-workflow%20package-D97757?logo=anthropic&logoColor=white)](https://claude.com/claude-code)
 [![Shell](https://img.shields.io/badge/shell-bash-4EAA25?logo=gnubash&logoColor=white)](install.sh)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#installing)
@@ -71,6 +72,7 @@ docs/
 ├── security/                      # /security-check reports
 └── templates/                     # blank + example for every document above
 scripts/build-index.sh             # index generator (--check for staleness)
+scripts/check.sh                   # gate runner: categories, --files, --staged
 ```
 
 Corporate mode (`--corporate`): the `docs/` and `scripts/` trees above live under
@@ -223,14 +225,20 @@ Every gate belay installs is an **agent** gate. `pre-commit-security.sh` is wire
 person typing `git commit` in a terminal is not covered by any of it. That surprises
 people who plant a test secret, commit it by hand, and watch it sail through.
 
-`--git-hook` writes `.git/hooks/pre-commit`, which feeds the same script the same
-payload Claude Code would have sent. One scanner, one `secret-allowlist`, one set of
-patterns, both paths. Opt-in on purpose: it is the only part of the install that changes
-what happens when *you* commit, so a re-install never starts blocking you silently.
+`--git-hook` writes `.git/hooks/pre-commit`, a locator that execs
+`scripts/check.sh --staged`. That runs the file gates over every staged file and then the
+commit gate — the same scripts the agent path runs, not a parallel implementation. Opt-in
+on purpose: it is the only part of the install that changes what happens when *you*
+commit, so a re-install never starts blocking you silently.
 
-- **Never clobbers.** If a `pre-commit` hook already exists, it is left byte-identical
-  and the single line to append is printed instead. Re-running with a belay hook already
-  in place is a no-op.
+Because the file gates run formatters, a formatter that rewrites a staged file **blocks
+the commit**: what you staged is no longer what is on disk. Re-stage and commit again —
+the message names the files.
+
+- **Never clobbers someone else's.** If a `pre-commit` hook exists that belay did not
+  write, it is left byte-identical and the single line to append is printed instead.
+  Belay's *own* hook is refreshed on re-install, which is how a change to what it runs
+  reaches a repo that is already installed.
 - **Honours `core.hooksPath`**, so husky/lefthook repos get it in the directory git
   actually runs.
 - **Fails open.** If `.claude/hooks/` disappears, the hook exits 0 — uninstalling belay
@@ -461,7 +469,11 @@ BI=$([ -e .claude/workflow/corporate ] && echo .belay/)scripts/build-index.sh
 "$BI"                                                    # expect: "index written: ... /index (...)"
 "$BI" --check                                            # expect: "index fresh (<hash>)"
 
-# 6. Commands are visible
+# 6. Gate runner works from a plain shell (no agent involved)
+CK=$([ -e .claude/workflow/corporate ] && echo .belay/)scripts/check.sh
+"$CK"                                                    # expect: per-category PASS lines, or "workflow gap:" for unconfigured ones
+
+# 7. Commands are visible
 claude                                                    # then type /  — expect the nine workflow commands listed
 ```
 
@@ -587,20 +599,51 @@ index without the pipeline is the common corporate case.
 
 ## The enforcement layer
 
-| Hook | Event (verified against docs) | What it does |
+**One contract:** a gate takes file paths and returns an exit code. It parses no payload
+and reads no stdin. Adapters translate an agent's hook payload into that call — they are
+the only files here that touch JSON. So the agent, you, the git hook and CI all run the
+same script for the same reason, and there is no per-caller variant to keep in sync.
+
+| Gate | What it does |
+|---|---|
+| `post-edit-gate.sh <file>` | runs whatever `toolchain.json` has for that file's extension — format, lint, and a file-scoped typecheck *where one exists* (several stacks have none: Node/TS typechecks project-wide only, Unity and Unreal not at all — `gaps` names each). Exit 2 returns the failure on stderr |
+| `boundary-check.sh <file>` | grep-heuristic check of `boundaries.rules` deny edges on that file |
+| `pre-commit-security.sh` | no arguments: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged. **Exit 2 means do not let this commit happen.** Corporate mode: also blocks commits while any belay state path shows in `git status` |
+
+| Adapter | Event | Calls |
 |---|---|---|
-| `post-edit-gate.sh` | `PostToolUse`, matcher `Edit\|Write` | runs whatever `toolchain.json` has for the touched file's extension — format, lint, and a file-scoped typecheck *where one exists* (several stacks have none: Node/TS typechecks project-wide only, Unity and Unreal not at all — `gaps` names each). Failures return to Claude via stderr/exit 2 for same-turn fixing (PostToolUse cannot block — by design the edit gate is a feedback loop, the blocking gates are below) |
-| `boundary-check.sh` | `PostToolUse`, matcher `Edit\|Write` | grep-heuristic check of `boundaries.rules` deny edges on the touched file |
-| `pre-commit-security.sh` | `PreToolUse`, matcher `Bash` | on `git commit`: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged; **exit 2 blocks the commit**. Corporate mode: also blocks `git clean -x/-X` (would erase the git-excluded belay state) and blocks commits while any belay state path shows in `git status` |
+| `edit-gate-adapter.sh` | `PostToolUse`, matcher `Edit\|Write` | both file gates on the edited path. PostToolUse cannot block — the edit already happened — so exit 2 returns stderr to Claude for same-turn fixing, which is the design (P3) |
+| `bash-gate-adapter.sh` | `PreToolUse`, matcher `Bash` | decides whether the command is a `git commit` and, if so, runs the commit gate; **exit 2 blocks it**. Corporate mode: also blocks `git clean -x/-X`, which would erase the git-excluded belay state |
+| `cursor-adapter.sh` | Cursor `afterFileEdit` / `beforeShellExecution` | the same two paths, mapped onto Cursor's permission protocol |
 
-The two toolchain hooks (`post-edit-gate.sh`, `pre-commit-security.sh`) read
-`.claude/workflow/toolchain.json`, with `.claude/workflow/toolchain.manual.json`
-consulted first where it exists, and never skip silently: a missing tool category
-produces a loud `workflow gap:` line naming the fix (P7).
+**Running them yourself — `scripts/check.sh`:**
 
-**CI note (out of scope, one line):** mirror `pre-commit-security.sh` and the
-project-wide toolchain commands in CI — hooks only guard actions taken through Claude
-Code; manual commits and pushes need the same checks server-side.
+```bash
+scripts/check.sh                    # project-wide: test, lint, typecheck
+scripts/check.sh lint audit         # only these categories
+scripts/check.sh --files src/a.ts   # the file gates, on paths you name
+scripts/check.sh --staged           # the file gates on staged files + the commit gate
+```
+
+Categories come from `toolchain.json`, so `check.sh` and `/validate-phase` run the same
+commands by construction. `--staged` is what the `--git-hook` pre-commit hook executes.
+Exit 1 if anything failed; an unconfigured category is a loud `workflow gap:` line, not a
+failure.
+
+The toolchain-driven gates read `.claude/workflow/toolchain.json`, with
+`.claude/workflow/toolchain.manual.json` consulted first where it exists, and never skip
+silently: a missing tool category produces a loud `workflow gap:` line naming the fix (P7).
+
+**CI: belay does not write one, in any mode.** Most of a CI file is not belay's —
+runner, triggers, caching, matrix, secrets, your existing jobs — and `check.sh` is one
+line of it. Write your own job and call it:
+
+```yaml
+- run: ./scripts/check.sh          # .belay/scripts/check.sh in a corporate install
+```
+
+Local hooks are per-clone and `--no-verify` skips them. CI is the layer that actually
+holds for everyone.
 
 ## Feedback loop (consuming project → package)
 
@@ -642,7 +685,9 @@ that would cost regeneration speed and diff noise without changing any decision.
 
 ## Non-goals
 
-- Not CI/CD — hooks are local gates (see the CI note above).
+- Not CI/CD. Belay never writes a CI file into a project, in any mode: most of such a
+  file is not belay's, and `scripts/check.sh` is one line of it. Call it from your own
+  job — see the enforcement layer above.
 - Not tied to any language, framework, or cloud.
 - Not project management — `PHASES.md` tracks execution state, never people or dates.
 

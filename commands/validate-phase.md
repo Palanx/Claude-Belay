@@ -13,7 +13,7 @@ marked `done` is load-bearing for every phase that depends on it.
 
 **Preconditions:** `docs/phases/$1/spec.md` and `notes.md` exist; PHASES.md status is `in-progress`. Missing notes.md means `/implement-phase` skipped its mandatory final step — go back and write it first; validation validates the record as well as the code.
 
-**Reads:** `docs/phases/$1/spec.md` + `notes.md`, `.claude/workflow/toolchain.json`, `docs/phases/PHASES.md`.
+**Reads:** `docs/phases/$1/spec.md` + `notes.md`, `.claude/workflow/toolchain.json` (via `scripts/check.sh`), `docs/phases/PHASES.md`.
 **Writes:** `docs/phases/$1/notes.md` (validation record appended), `docs/phases/PHASES.md` (status → `done` on pass only).
 
 **The phase's file set and diff** — defined once here, used by steps 3, 5 and 6. Default:
@@ -33,14 +33,17 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    construction (P3) — if one turns out not to be runnable, that is itself a failure:
    fix the criterion in spec.md and note the fix in notes.md.
 
-2. **Project-wide gates.** From `toolchain.json` run `test`, `lint`, `typecheck` (the
-   project-wide forms — this catches breakage *outside* the phase's own files that the
-   per-file edit hook cannot see). For any category listed in `gaps`, print the gap
-   warning verbatim: an unchecked category is stated, never silent (P7).
+2. **Project-wide gates.** Run `scripts/check.sh` and record its output and exit code.
+   It runs `test`, `lint` and `typecheck` in their project-wide forms — this catches
+   breakage *outside* the phase's own files that the per-file edit gate cannot see. Do
+   not run those commands yourself: the script is the same one a human and CI call, and
+   running them by hand is how the two paths drift apart. For any category the script
+   reports as a `workflow gap:`, print that warning verbatim in the report — an unchecked
+   category is stated, never silent (P7).
 
-3. **Boundary sweep.** For every source file in the phase's file set (defined above),
-   verify no line violates `.claude/workflow/boundaries.rules` — the
-   same check the edit hook does, re-run as a batch in case any edit path bypassed it.
+3. **Boundary sweep.** Run `scripts/check.sh --files <every source file in the phase's
+   file set>` (the file set is defined above). This is the same gate the edit path runs,
+   re-run as a batch in case any edit bypassed it.
    **Corporate mode** (`.claude/workflow/corporate` exists): also verify no belay state
    path appears in `git status --porcelain` — no line matching
    `^\?\? (\.belay/|CLAUDE\.local\.md|docs/(product|adr|phases|index|security|templates)/|docs/(constraints|adoption-report)\.md|scripts/build-index\.sh)`

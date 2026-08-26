@@ -70,15 +70,16 @@ check "tracked homonymous command skipped" test "$(git -C "$A" hash-object .clau
 # sed correctness on installed copies (commands + cursor commands, minus the
 # skipped company homonym).
 seddirs=("$A/.claude/commands" "$A/.cursor/commands")
-unrewritten="$(grep -RhoE '(\.belay/)?(docs/(product|adr|phases|index|security|templates|constraints\.md|adoption-report\.md)|scripts/build-index\.sh)' "${seddirs[@]}" | grep -v '^\.belay/' || true)"
+unrewritten="$(grep -RhoE '(\.belay/)?(docs/(product|adr|phases|index|security|templates|constraints\.md|adoption-report\.md)|scripts/(build-index|check)\.sh)' "${seddirs[@]}" | grep -v '^\.belay/' || true)"
 check "sed: no unrewritten docs/ or scripts/ references" test -z "$unrewritten"
 check "sed: no double rewrite (.belay/.belay)" bash -c '! grep -Rq "\.belay/\.belay" "$1" "$2" "$3"' _ "${seddirs[@]}" "$A/.belay"
 check "sed: build-index OUTDIR relocated" grep -q '\.belay/docs/index' "$A/.belay/scripts/build-index.sh"
+check "corporate: check.sh installed under .belay/scripts" test -x "$A/.belay/scripts/check.sh"
 check "sed: post-edit-gate containment globs survived rewrite" grep -q 'docs/\[p\]roduct' "$A/.claude/hooks/post-edit-gate.sh"
 
 # settings.local.json merged, not clobbered
 check "settings.local.json: custom key preserved" test "$(jq -r .belaytest "$A/.claude/settings.local.json")" = "keep"
-check "settings.local.json: hook wiring merged in" grep -q 'post-edit-gate.sh' "$A/.claude/settings.local.json"
+check "settings.local.json: hook wiring merged in" grep -q 'edit-gate-adapter.sh' "$A/.claude/settings.local.json"
 
 # idempotence
 "$PKG/install.sh" "$A" --corporate --cursor >"$TMP/install2.log" 2>&1 \
@@ -107,29 +108,32 @@ check "git status clean after runtime writes" test -z "$NEW3"
 hookrun() { # hookrun <hook> <json> — runs installed hook with payload, returns its exit
   printf '%s' "$2" | CLAUDE_PROJECT_DIR="$A" "$A/.claude/hooks/$1" >/dev/null 2>&1
 }
-hookrun pre-commit-security.sh '{"tool_input":{"command":"git clean -fdx"}}' \
+gaterun() { # gaterun <gate> <file> — runs installed gate with argv, returns its exit
+  CLAUDE_PROJECT_DIR="$A" "$A/.claude/hooks/$1" "$2" >/dev/null 2>&1
+}
+hookrun bash-gate-adapter.sh '{"tool_input":{"command":"git clean -fdx"}}' \
   && bad "clean guard: git clean -fdx blocked" || ok "clean guard: git clean -fdx blocked"
-hookrun pre-commit-security.sh '{"tool_input":{"command":"git clean -fd"}}' \
+hookrun bash-gate-adapter.sh '{"tool_input":{"command":"git clean -fd"}}' \
   && ok "clean guard: git clean -fd (no -x) passes" || bad "clean guard: git clean -fd (no -x) passes"
-hookrun pre-commit-security.sh '{"tool_input":{"command":"git clean --exclude=foo -fd"}}' \
+hookrun bash-gate-adapter.sh '{"tool_input":{"command":"git clean --exclude=foo -fd"}}' \
   && ok "clean guard: --exclude does not false-positive" || bad "clean guard: --exclude does not false-positive"
 
 mkdir -p "$A/docs/phases" && printf 'stray\n' >"$A/docs/phases/stray.md"
-hookrun pre-commit-security.sh '{"tool_input":{"command":"git commit -m x"}}' \
+hookrun bash-gate-adapter.sh '{"tool_input":{"command":"git commit -m x"}}' \
   && bad "containment: commit blocked while stray docs/phases file exists" \
   || ok "containment: commit blocked while stray docs/phases file exists"
-hookrun post-edit-gate.sh "{\"tool_input\":{\"file_path\":\"$A/docs/phases/stray.md\"}}" \
+gaterun post-edit-gate.sh "$A/docs/phases/stray.md" \
   && bad "containment: post-edit-gate flags write to old canonical path" \
   || ok "containment: post-edit-gate flags write to old canonical path"
 rm -rf "$A/docs/phases"
-hookrun pre-commit-security.sh '{"tool_input":{"command":"git commit -m x"}}' \
+hookrun bash-gate-adapter.sh '{"tool_input":{"command":"git commit -m x"}}' \
   && ok "containment: commit passes once stray file removed" \
   || bad "containment: commit passes once stray file removed"
-hookrun post-edit-gate.sh "{\"tool_input\":{\"file_path\":\"$A/docs/adr/001-company.md\"}}" \
+gaterun post-edit-gate.sh "$A/docs/adr/001-company.md" \
   && ok "containment: tracked company docs/adr file passes" \
   || bad "containment: tracked company docs/adr file passes"
 mkdir -p "$A/.belay/docs/phases" && printf 'legit\n' >"$A/.belay/docs/phases/notes.md"
-hookrun post-edit-gate.sh "{\"tool_input\":{\"file_path\":\"$A/.belay/docs/phases/notes.md\"}}" \
+gaterun post-edit-gate.sh "$A/.belay/docs/phases/notes.md" \
   && ok "containment: .belay/docs write passes" || bad "containment: .belay/docs write passes"
 
 # --- upstream collision warning (build-index.sh --check) ---------------------
@@ -281,7 +285,7 @@ check "project's own hook entry survives the rewire" \
 check "wiring of an upstream-deleted hook is dropped" \
   bash -c '! grep -q removed-gate.sh "$1/.claude/settings.json"' _ "$B"
 check "no duplicate wiring after re-install" \
-  test "$(grep -c 'post-edit-gate.sh' "$B/.claude/settings.json")" = 1
+  test "$(grep -c 'edit-gate-adapter.sh' "$B/.claude/settings.json")" = 1
 
 "$PKG/install.sh" "$B" >"$TMP/install6.log" 2>&1   # back to the real package
 check "dummy wiring removed once upstream drops it" \
@@ -431,8 +435,7 @@ mkdir -p "$M/.claude/workflow"
 gitq "$M" init -q
 printf 'let x = 1\n' >"$M/a.js"
 tcjson() { printf '{ "stacks": ["fake"], "commands": {}, "file_commands": { "js": { "format": %s, "lint": %s } }, "exempt": [], "gaps": [] }\n' "$1" "$2" >"$M/.claude/workflow/toolchain.json"; }
-gate() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/a.js"}}' "$M" \
-         | CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" 2>"$TMP/gate.err"; }
+gate() { CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" "$M/a.js" 2>"$TMP/gate.err"; }
 
 tcjson '"true"' '"true"'
 gate && ok "no-op formatter stays silent (exit 0)" || bad "no-op formatter stays silent (exit 0)"
@@ -455,8 +458,7 @@ check "combined report also mentions the reformat" grep -q 'formatter also rewro
 # file project-owned. The manual file is the durable half: the detector never
 # opens it, and common.sh consults it before the generated one.
 tcmanual() { printf '%s\n' "$1" >"$M/.claude/workflow/toolchain.manual.json"; }
-gatef() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/%s"}}' "$M" "$1" \
-          | CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" 2>"$TMP/gate.err"; }
+gatef() { CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" "$M/$1" 2>"$TMP/gate.err"; }
 
 # Supplies a tool detection missed entirely: without it this file has no gates.
 printf '{ "stacks": ["fake"], "commands": {}, "file_commands": {}, "exempt": [], "gaps": [] }\n' \
@@ -497,15 +499,115 @@ done
 check "sandbox PATH really has no jq/python3 but does have dirname" \
   bash -c 'PATH="$1"; ! command -v jq >/dev/null && ! command -v python3 >/dev/null && command -v dirname >/dev/null' _ "$NOJSON"
 printf 'layer a src/\nlayer b lib/\ndeny a -> b\n' >"$M/.claude/workflow/boundaries.rules"
-for h in post-edit-gate boundary-check; do
-  if printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/a.js"}}' "$M" \
-     | env PATH="$NOJSON" CLAUDE_PROJECT_DIR="$M" bash "$PKG/hooks/$h.sh" >/dev/null 2>"$TMP/$h.err"; then
-    bad "$h fails closed with no JSON parser"
-  else
-    grep -q 'DID NOT RUN' "$TMP/$h.err" && ok "$h fails closed with no JSON parser" \
-      || { bad "$h fails closed: wrong message"; sed 's/^/    /' "$TMP/$h.err"; }
-  fi
-done
+# The gates take argv and parse nothing, so the fail-closed contract moved to
+# the one file that still reads a payload. If it ever exits 0 here, both gates
+# are silently skipped on every edit — the exact thing P7 forbids.
+h=edit-gate-adapter
+if printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/a.js"}}' "$M" \
+   | env PATH="$NOJSON" CLAUDE_PROJECT_DIR="$M" bash "$PKG/hooks/$h.sh" >/dev/null 2>"$TMP/$h.err"; then
+  bad "$h fails closed with no JSON parser"
+else
+  grep -q 'DID NOT RUN' "$TMP/$h.err" && ok "$h fails closed with no JSON parser" \
+    || { bad "$h fails closed: wrong message"; sed 's/^/    /' "$TMP/$h.err"; }
+fi
+
+# One payload, two entry points: the adapter must produce what calling the gate
+# directly produces, or the agent path and the shell path drift apart silently.
+tcjson '"echo formatted >>"' '"true"'
+printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/a.js"}}' "$M" \
+  | CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/edit-gate-adapter.sh" 2>"$TMP/via-adapter.err" || true
+CLAUDE_PROJECT_DIR="$M" "$PKG/hooks/post-edit-gate.sh" "$M/a.js" 2>"$TMP/via-argv.err" || true
+check "adapter and direct call report the same thing" \
+  cmp -s "$TMP/via-adapter.err" "$TMP/via-argv.err"
+
+# The gate is now callable with no payload at all — that is the interface CI and
+# the git hook use, and nothing covered it while it was a PreToolUse hook.
+BARE="$TMP/bare-gate"
+mkdir -p "$BARE/.claude/workflow"
+cp -R "$PKG/hooks/." "$BARE/.claude/hooks/"
+gitq "$BARE" init -q
+printf 'aws_key = "AKIAIOSFODNN7EXAMPLE"\n' >"$BARE/leak.txt"
+gitq "$BARE" add leak.txt
+CLAUDE_PROJECT_DIR="$BARE" "$BARE/.claude/hooks/pre-commit-security.sh" >/dev/null 2>&1 \
+  && bad "gate blocks a staged secret when called bare (no payload)" \
+  || ok "gate blocks a staged secret when called bare (no payload)"
+gitq "$BARE" rm -q --cached leak.txt >/dev/null && rm -f "$BARE/leak.txt"
+printf 'clean\n' >"$BARE/ok.txt"; gitq "$BARE" add ok.txt
+CLAUDE_PROJECT_DIR="$BARE" "$BARE/.claude/hooks/pre-commit-security.sh" >/dev/null 2>&1 \
+  && ok "gate passes a clean staged set when called bare" \
+  || bad "gate passes a clean staged set when called bare"
+
+# ============================== check.sh runner ==============================
+# Until now the only thing that read toolchain.json's project-wide commands was
+# /validate-phase — a markdown file. Running your own gates required an agent.
+echo "== check.sh runner =="
+C="$TMP/checkrun"
+mkdir -p "$C/.claude/hooks/lib" "$C/.claude/workflow"
+gitq "$C" init -q
+cp "$PKG/hooks/lib/common.sh" "$C/.claude/hooks/lib/common.sh"
+cp "$PKG/scripts/check.sh" "$C/check.sh"
+# check.sh resolves common.sh from the git root, so the fixture needs it at that
+# exact path; copying only check.sh fails every assert for the wrong reason.
+cjson() { printf '%s\n' "$1" >"$C/.claude/workflow/toolchain.json"; }
+cmanual() { printf '%s\n' "$1" >"$C/.claude/workflow/toolchain.manual.json"; }
+runcheck() { (cd "$C" && ./check.sh "$@") >"$TMP/check.out" 2>&1; }
+
+cjson '{ "commands": { "test": "true", "lint": "true", "typecheck": "true" } }'
+runcheck && ok "all categories passing exits 0" || bad "all categories passing exits 0"
+check "each passing category is reported" \
+  bash -c 'test "$(grep -c "   PASS" "$1")" = 3' _ "$TMP/check.out"
+
+cjson '{ "commands": { "test": "true", "lint": "false", "typecheck": "true" } }'
+runcheck && bad "a failing category exits 1" || ok "a failing category exits 1"
+check "the summary names the failed category" grep -q 'FAILED — lint' "$TMP/check.out"
+
+# A gap is loud but not a failure: an unconfigured category must not turn a
+# green run red, or nobody configures anything (P7).
+cjson '{ "commands": { "test": "true" } }'
+runcheck && ok "an unconfigured category does not fail the run" \
+         || bad "an unconfigured category does not fail the run"
+check "the unconfigured category is reported as a gap" grep -q 'workflow gap:' "$TMP/check.out"
+
+# The CLI reaches the manual file too — this is what tc_init exists for.
+cjson '{ "commands": { "test": "false" } }'
+cmanual '{ "commands": { "test": "true" } }'
+runcheck test && ok "manual command wins from the CLI" || bad "manual command wins from the CLI"
+rm -f "$C/.claude/workflow/toolchain.manual.json"
+
+# --files: the same gates the agent hits, addressed by path.
+mkdir -p "$C/.claude/hooks" "$C/src" "$C/lib"
+cp "$PKG/hooks/post-edit-gate.sh" "$PKG/hooks/boundary-check.sh" "$C/.claude/hooks/"
+printf 'layer app src/\nlayer infra lib/\ndeny app -> infra\n' >"$C/.claude/workflow/boundaries.rules"
+cjson '{ "commands": {}, "file_commands": {}, "exempt": [], "gaps": [] }'
+printf 'import x from "../lib/db"\n' >"$C/src/bad.js"
+printf 'const x = 1\n' >"$C/src/good.js"
+runcheck --files src/bad.js && bad "--files blocks a boundary violation" \
+                            || ok "--files blocks a boundary violation"
+check "--files names the violated rule" grep -q 'BOUNDARY VIOLATION' "$TMP/check.out"
+runcheck --files src/good.js && ok "--files passes a clean file" || bad "--files passes a clean file"
+
+# --staged: the human commit path. Same gates, addressed by what git has staged.
+cp "$PKG/hooks/pre-commit-security.sh" "$C/.claude/hooks/"
+gitq "$C" add -A >/dev/null; gitq "$C" commit -qm init
+printf 'import y from "../lib/db"\n' >"$C/src/bad2.js"; gitq "$C" add src/bad2.js
+runcheck --staged && bad "--staged blocks a staged boundary violation" \
+                  || ok "--staged blocks a staged boundary violation"
+gitq "$C" reset -q; rm -f "$C/src/bad2.js"
+
+# A formatter that rewrites a staged file invalidates what git holds: the commit
+# would capture the unformatted blob while the worktree has the formatted one.
+cjson '{ "commands": {}, "file_commands": { "js": { "format": "echo fmt >>" } }, "exempt": [], "gaps": [] }'
+printf 'const z = 1\n' >"$C/src/fmt.js"; gitq "$C" add src/fmt.js
+runcheck --staged && bad "--staged blocks when a formatter rewrote a staged file" \
+                  || ok "--staged blocks when a formatter rewrote a staged file"
+check "--staged says which files to re-stage" \
+  bash -c 'grep -q "Stage them and commit again" "$1" && grep -q "src/fmt.js" "$1"' _ "$TMP/check.out"
+gitq "$C" reset -q; rm -f "$C/src/fmt.js"
+
+cjson '{ "commands": {}, "file_commands": {}, "exempt": [], "gaps": [] }'
+printf 'const ok = 1\n' >"$C/src/clean.js"; gitq "$C" add src/clean.js
+runcheck --staged && ok "--staged passes a clean staged set" || bad "--staged passes a clean staged set"
+gitq "$C" reset -q
 
 # ==================== normal-mode orphan reaping =============================
 echo "== normal-mode orphan reaping =="
@@ -541,7 +643,7 @@ rm -f "$O/.claude/workflow/installed"          # as an older belay would have le
   || { bad "corporate re-install with no manifest exits 0"; sed 's/^/    /' "$TMP/install16.log"; }
 check "fallback reaps the dropped command" test ! -e "$O/.claude/commands/temp-thing.md"
 check "fallback never deletes the hook wiring" test -f "$O/.claude/settings.local.json"
-check "fallback leaves the wiring intact" grep -q 'post-edit-gate.sh' "$O/.claude/settings.local.json"
+check "fallback leaves the wiring intact" grep -q 'edit-gate-adapter.sh' "$O/.claude/settings.local.json"
 ONEW="$(comm -13 <(printf '%s\n' "$OBEFORE" | sort) <(gitq "$O" status --porcelain | sort) | grep -v '^$' || true)"
 check "git status clean after the fallback reap" test -z "$ONEW"
 
@@ -578,7 +680,14 @@ gitq "$G" reset -q --hard HEAD~1
 "$PKG/install.sh" "$G" --git-hook >"$TMP/gh2.log" 2>&1
 check "re-install leaves the hook byte-identical to the shipped one" \
   cmp -s "$PKG/settings/pre-commit.githook" "$G/.git/hooks/pre-commit"
-check "re-install reports it was left alone" grep -q 'already runs belay' "$TMP/gh2.log"
+check "re-install refreshes belay's own hook" grep -q "belay's own hook — refreshed" "$TMP/gh2.log"
+
+# A hook from before the shim retargeted carries the old marker only. It must be
+# upgraded, not mistaken for a third party's and left behind forever.
+printf '#!/bin/sh\nexec .claude/hooks/pre-commit-security.sh\n' >"$G/.git/hooks/pre-commit"
+"$PKG/install.sh" "$G" --git-hook >"$TMP/gh2b.log" 2>&1
+check "a hook with only the pre-retarget marker is upgraded" \
+  cmp -s "$PKG/settings/pre-commit.githook" "$G/.git/hooks/pre-commit"
 
 # Someone else's hook is sacred: left byte-identical, instructions printed.
 P="$TMP/githook-pre-existing"
@@ -639,6 +748,18 @@ check "gap_warn names a workflow file to edit" test -n "$gapfile"
 check "the file gap_warn points at is listed as project-owned in the README" \
   bash -c 'grep -A4 "^\*\*Customize (project-owned):\*\*" "$1/README.md" | grep -qF "$2"' \
   _ "$PKG" "$gapfile"
+
+# check.sh's usage block is its own source of truth; the README repeats it. A mode
+# added without documenting it is invisible to everyone who is not reading shell.
+modes="$(sed -n '3,6p' "$PKG/scripts/check.sh" | grep -oE '^# +check\.sh --[a-z]+' | grep -oE '\-\-[a-z]+')"
+check "check.sh declares at least one mode flag" test -n "$modes"
+missingmodes=""
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  grep -qF -- "check.sh $m" "$PKG/README.md" || missingmodes="$missingmodes $m"
+done <<<"$modes"
+check "every check.sh mode flag is documented in the README" test -z "$missingmodes"
+[ -z "$missingmodes" ] || echo "    undocumented:$missingmodes"
 
 # requirements.md is bootstrap-only, so every reference must tolerate its absence.
 check "plan-feature guards its requirements.md read with 'if present'" \

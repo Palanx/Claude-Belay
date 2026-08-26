@@ -1,0 +1,24 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    # CLAUDE.md requires this package to work on macOS and Linux, and all
+    # development happens on macOS — so Linux is the untested half of every
+    # commit until this job runs.
+    strategy:
+      # A Linux-only failure must not cancel the macOS job: the comparison
+      # between the two is what tells you it is a portability bug.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # jq is a hard requirement of the suite and python3 is used by the hooks;
+      # both are preinstalled on GitHub's ubuntu and macos runners. No install
+      # step until a run actually fails for a missing tool.
+      - run: ./tests/corporate-smoke.sh

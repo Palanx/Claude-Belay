@@ -119,11 +119,12 @@ copy_into() { # copy_into <target-relative destdir> <src files...>
     record "$dest/$b"
     if [ "$CORPORATE" -eq 1 ]; then
       # Rewrite canonical paths in the copy (package sources stay canonical).
-      # Maintenance point: any new docs/<subdir> referenced by commands or
-      # templates must be added to the first alternation.
+      # Maintenance point: any new docs/<subdir> or scripts/<name>.sh referenced
+      # by commands or templates must be added to these alternations, or it stays
+      # canonical here and points at a path corporate mode does not have.
       sed -E -i.belaybak \
         -e 's#docs/(product|adr|phases|index|security|templates|constraints\.md|adoption-report\.md)#.belay/docs/\1#g' \
-        -e 's#scripts/build-index\.sh#.belay/scripts/build-index.sh#g' "$out"
+        -e 's#scripts/(build-index|check)\.sh#.belay/scripts/\1.sh#g' "$out"
       rm -f "$out.belaybak"
     fi
     case "$b" in *.sh) chmod +x "$out" ;; esac
@@ -137,7 +138,7 @@ PREV_INSTALLED=""
 copy_into .claude/commands  "$PKG"/commands/*.md
 copy_into .claude/hooks     "$PKG"/hooks/*.sh
 copy_into .claude/hooks/lib "$PKG"/hooks/lib/*.sh
-copy_into "$SCRIPTS"        "$PKG"/scripts/build-index.sh
+copy_into "$SCRIPTS"        "$PKG"/scripts/build-index.sh "$PKG"/scripts/check.sh
 copy_into "$DOCS/templates" "$PKG"/templates/*
 
 # Version stamp: /belay-feedback cites it so feedback entries name the exact
@@ -280,12 +281,18 @@ if [ "$GITHOOK" -eq 1 ]; then
     GH="$(git -C "$TARGET" rev-parse --git-path hooks/pre-commit)"
     case "$GH" in /*) ;; *) GH="$TARGET/$GH" ;; esac
     GHREL="${GH#"$TARGET"/}"
-    if [ -e "$GH" ] && grep -qF 'pre-commit-security.sh' "$GH" 2>/dev/null; then
-      echo "  $GHREL already runs belay's security gate — left alone"
+    # Match belay's own header comment, not the script it happens to call: a
+    # target name goes stale the moment the shim retargets, and every repo
+    # installed before that change would then read as a third party's hook and
+    # never upgrade. The old marker stays in the pattern for exactly that reason.
+    if [ -e "$GH" ] && grep -qE 'Installed by claude-belay|pre-commit-security\.sh' "$GH" 2>/dev/null; then
+      cp "$PKG/settings/pre-commit.githook" "$GH"
+      chmod +x "$GH"
+      echo "  $GHREL is belay's own hook — refreshed"
     elif [ -e "$GH" ]; then
       echo "  NOTE: $GHREL already exists and does not call belay — left untouched."
       echo "        To gate human commits too, append this line to it:"
-      echo "          echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit\"}}' | \"\$(git rev-parse --show-toplevel)\"/.claude/hooks/pre-commit-security.sh"
+      echo "          \"\$(git rev-parse --show-toplevel)\"/scripts/check.sh --staged   # .belay/scripts/ in corporate mode"
     elif tracked "$GHREL"; then
       # Only reachable via core.hooksPath pointing inside the working tree.
       echo "  WARNING: $GHREL is tracked by the target repo — skipped (belay never writes tracked files)"
@@ -426,8 +433,10 @@ done <<<"$PREV_INSTALLED"
 fail=0
 for f in .claude/hooks/post-edit-gate.sh .claude/hooks/boundary-check.sh \
          .claude/hooks/pre-commit-security.sh .claude/hooks/cursor-adapter.sh \
+         .claude/hooks/edit-gate-adapter.sh .claude/hooks/bash-gate-adapter.sh \
          .claude/hooks/lib/common.sh \
          .claude/hooks/lib/detect-toolchain.sh "$SCRIPTS/build-index.sh" \
+         "$SCRIPTS/check.sh" \
          .claude/commands/plan-feature.md .claude/commands/belay-feedback.md \
          .claude/workflow/belay-version "$DOCS/templates/spec.md"; do
   [ -e "$TARGET/$f" ] || { echo "  MISSING after install: $f" >&2; fail=1; }
@@ -443,7 +452,8 @@ fi
 if [ "$GITHOOK" -eq 1 ] && [ -n "${GH:-}" ] && [ -x "$GH" ]; then
   bash -n "$GH"
 fi
-bash -n "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh "$TARGET/$SCRIPTS/build-index.sh"
+bash -n "$TARGET"/.claude/hooks/*.sh "$TARGET"/.claude/hooks/lib/*.sh \
+       "$TARGET/$SCRIPTS/build-index.sh" "$TARGET/$SCRIPTS/check.sh"
 if command -v jq >/dev/null 2>&1 && [ -f "$SET" ]; then jq . "$SET" >/dev/null; fi
 # The rewire is silent on success, so assert it took: every package hook the
 # wiring references must be present in the target settings (P7 — loud gaps).

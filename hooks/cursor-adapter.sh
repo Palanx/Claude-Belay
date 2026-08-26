@@ -8,7 +8,7 @@
 #                           (observational: Cursor ignores afterFileEdit output,
 #                           so the fix-it-same-turn loop of Claude Code is weaker
 #                           here — /validate-phase remains the hard gate)
-#   beforeShellExecution -> pre-commit-security.sh (exit 2 => permission deny)
+#   beforeShellExecution -> bash-gate-adapter.sh (exit 2 => permission deny)
 #
 # belay-debt: this whole adapter is verified by inspection only — never run with
 # Cursor actually installed, so the event names, the payload field names, the
@@ -60,11 +60,17 @@ emit() { # emit <allow|deny> <message>
 
 case "$EVENT" in
   afterFileEdit)
-    printf '%s' "$HOOK_INPUT" | "$DIR/post-edit-gate.sh" || true
-    printf '%s' "$HOOK_INPUT" | "$DIR/boundary-check.sh" || true
+    # The gates take a path. Extract it once here rather than re-parsing the
+    # payload inside each one — see post-edit-gate.sh for the gate/adapter split.
+    FILE="$(json_get .file_path 2>/dev/null)" || FILE=""
+    [ -n "$FILE" ] || FILE="$(json_get .tool_input.file_path 2>/dev/null)" || FILE=""
+    if [ -n "$FILE" ]; then
+      "$DIR/post-edit-gate.sh" "$FILE" || true
+      "$DIR/boundary-check.sh" "$FILE" || true
+    fi
     exit 0 ;;
   beforeShellExecution)
-    if err="$(printf '%s' "$HOOK_INPUT" | "$DIR/pre-commit-security.sh" 2>&1 >/dev/null)"; then
+    if err="$(printf '%s' "$HOOK_INPUT" | "$DIR/bash-gate-adapter.sh" 2>&1 >/dev/null)"; then
       emit allow ""
     else
       emit deny "$err"

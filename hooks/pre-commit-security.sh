@@ -1,62 +1,23 @@
 #!/usr/bin/env bash
-# PreToolUse hook (matcher: Bash).
-# When the command about to run is a `git commit`, scan the STAGED changes for
-# secrets and (if dependency files are staged) run the dependency audit.
-# Exit 2 BLOCKS the commit and returns stderr to Claude (verified behavior for
-# PreToolUse). All other Bash commands pass through untouched at zero cost.
+# Gate: staged-content policy for a commit.
+#
+#   pre-commit-security.sh
+#
+# Takes no arguments and reads no stdin. Protected-branch guard, corporate
+# containment, secret scan of the staged changes, and the dependency audit when
+# dependency files are staged. Exit 2 means: do not let this commit happen.
+#
+# Deciding *whether* a given command is a commit is not this file's job — that
+# is bash-gate-adapter.sh, which is one caller. scripts/check.sh --staged and
+# the git pre-commit hook are the others, and neither has a command string to
+# offer. One gate, many callers.
 #
 # False-positive escape hatch: add a regex per line to
 # .claude/workflow/secret-allowlist (matched lines are ignored). That file is
 # reviewable in git — the bypass leaves a trace.
 set -u
 . "$(dirname "$0")/lib/common.sh"
-hook_init
-
-CMD="$(json_get .tool_input.command)" || {
-  # No jq/python3: cannot inspect the command. A security gate must not pass
-  # what it can't read — if it looks like a commit, fail closed.
-  case "$HOOK_INPUT" in
-    *commit*)
-      echo "COMMIT BLOCKED: no jq or python3 on PATH to parse the hook input," \
-           "so staged changes could not be scanned for secrets." >&2
-      echo "Install jq or python3, then commit again." >&2
-      exit 2 ;;
-    *clean*)
-      if [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/workflow/corporate" ]; then
-        echo "BLOCKED: cannot parse the command (no jq/python3) and it mentions 'clean'" \
-             "in a corporate-mode repo, where git clean -x/-X would erase the belay state." >&2
-        exit 2
-      fi
-      exit 0 ;;
-    *) exit 0 ;;
-  esac
-}
-[ -n "$CMD" ] || CMD="$(json_get .command)"   # Cursor payload shape (via cursor-adapter.sh)
-
-# --- corporate: git clean -x/-X guard ---------------------------------------
-# In corporate mode every belay path is untracked-and-excluded, so `git clean`
-# with -x (untracked+ignored) or -X (ignored only) deletes the entire workflow
-# state (.belay/, CLAUDE.local.md, wiring). Block it. `--exclude=` is safe and
-# does not match the short-flag pattern.
-if [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/workflow/corporate" ] \
-   && printf '%s' "$CMD" | grep -qE '(^|[^[:alnum:]._-])git([[:space:]]+[^[:space:]]+)*[[:space:]]+clean([[:space:]]|$)' \
-   && printf '%s' "$CMD" | grep -qE '(^|[[:space:]])-[A-Za-z]*[xX]'; then
-  {
-    echo "BLOCKED: git clean with -x/-X in a corporate-mode install."
-    echo "The belay workflow state (.belay/, CLAUDE.local.md, .claude/ wiring) is"
-    echo "untracked and git-excluded — clean -x/-X would delete it all."
-    echo "Run git clean without -x/-X, or uninstall first using the manifest in"
-    echo ".git/info/exclude (the '# >>> claude-belay' block)."
-  } >&2
-  exit 2
-fi
-
-# `git` as a word, then a `commit` subcommand, allowing option tokens between
-# (catches `git -C dir commit`, `git --git-dir=… commit`). Over-matching is
-# safe: an extra scan only blocks if a secret is actually staged.
-if ! printf '%s' "$CMD" | grep -qE '(^|[^[:alnum:]._-])git([[:space:]]+[^[:space:]]+)*[[:space:]]+commit([[:space:]]|$)'; then
-  exit 0
-fi
+tc_init
 
 cd "$ROOT" 2>/dev/null || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0

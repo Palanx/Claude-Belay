@@ -11,9 +11,9 @@ them into a target repo, and that copy is what executes.
 `install.sh:122-124` rewrites canonical paths into the `.belay/` form when
 installing with `--corporate`, using a **closed alternation list**
 (`docs/(product|adr|phases|index|security|templates|constraints.md|adoption-report.md)`
-and `scripts/build-index.sh`). A path name outside that list, written into a
-command or template, stays canonical in a corporate install and points at a
-location that mode does not have — silently. `tests/corporate-smoke.sh:73`
+and `scripts/(build-index|check).sh`). A path name outside that list, written
+into a command or template, stays canonical in a corporate install and points at
+a location that mode does not have — silently. `tests/corporate-smoke.sh:73`
 checks the same list, so it will not catch a genuinely new name either.
 Introducing one means editing the sed, the test's regex, and the README together.
 
@@ -31,6 +31,37 @@ must exist in `templates/constraints.md`; both entry commands must handle the
 must be one the README lists as project-owned. Rewording a template can fail the suite. That is
 the point — "two files say different things" is the bug class no behavioural
 test sees.
+
+## Gates take argv; adapters parse payloads
+
+The enforcement layer has one contract, and it is load-bearing: **a gate takes
+file paths and returns an exit code.** It parses no JSON and reads no stdin.
+Anything that speaks an agent's payload is an *adapter* whose only job is to
+translate one call.
+
+That is why `scripts/check.sh` can run every gate without fabricating a fake
+`{"tool_name":"Edit",...}` payload, and why the git hook and CI need no
+belay-specific glue. Adding a gate that parses a payload re-establishes the
+agent as the owner and forces every other caller to impersonate it.
+
+- New gate → argv, exit code, stderr. Wire it into `scripts/check.sh`.
+- Needs to fire on an agent action → add it to the relevant adapter
+  (`edit-gate-adapter.sh`, `bash-gate-adapter.sh`, `cursor-adapter.sh`).
+- The fail-closed contract for a missing JSON parser lives in the adapters, the
+  only files that can hit it. A gate has nothing to fail closed about.
+
+## What the installer may write into a target repo
+
+Belay may write **untracked, per-clone** files that affect only the operator who
+ran the installer. `.git/hooks/pre-commit` under `--git-hook` is the one case,
+and it is opt-in for exactly that reason.
+
+It may never write a **tracked** file that changes behaviour for the rest of the
+team — which is what rules out generating `.github/workflows/*`, however
+convenient. Corporate mode enforces the stricter form of this for every file and
+the installer checks it; in normal mode there is no check, so this rule is the
+only thing standing between a helpful feature and a commit somebody did not ask
+for.
 
 ## Extending toolchain detection
 
@@ -91,4 +122,5 @@ generalized from a private repo gets audited before it lands, examples included.
 | Open bugs reported from consuming projects | `~/.claude-belay/feedback/` (listed at SessionStart) |
 | Which installs are behind HEAD | `scripts/installs-stale.sh` (also at SessionStart) |
 | The design principles P1–P8 | `README.md` § Design principles |
+| Running the gates by hand (categories, `--files`, `--staged`) | `scripts/check.sh --help`, `README.md` § The enforcement layer |
 | Escape hatch when detection misses a stack | `README.md` § When your stack isn't detected |
