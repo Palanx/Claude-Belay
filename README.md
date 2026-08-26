@@ -525,10 +525,11 @@ missing Context pointer. Found here it is nearly free: the phase is still `expan
 nothing has been built against the old spec and no `notes.md` exists yet, so the fix is an
 edit and a regenerated plan. The same gap found later arrives as an `undecidable` verdict
 in `/validate-phase` step 5, and by then the amendment travels with the `notes.md`
-Deviations entry that every mid-implementation spec change requires — the command files
-carry that rule. Pedagogy is not a gap: how a person physically performs a step belongs in
-the plan and nowhere else, and moving it into the spec only bloats the starved reviewer's
-input.
+Deviations entry that every mid-implementation spec change requires — the rule is in
+[`commands/implement-phase.md`](commands/implement-phase.md), with the closure-test side in
+[`commands/validate-phase.md`](commands/validate-phase.md). Pedagogy is not a gap: how a
+person physically performs a step belongs in the plan and nowhere else, and moving it into
+the spec only bloats the starved reviewer's input.
 
 Nothing here ships with the package and nothing looks for it. One implementation is the
 `planning` skill in [Palanx/Claude-Configs](https://github.com/Palanx/Claude-Configs);
