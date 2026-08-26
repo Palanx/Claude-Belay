@@ -34,14 +34,17 @@ into the plan: the spec is written *after* the phases it depends on have reveale
 3. **Write the spec** at `docs/phases/$1/spec.md` from `docs/templates/spec.md`:
    - **Goal** — the index one-liner, expanded to a paragraph of *observable behavior*.
    - **Context pointers** — every file a fresh session must read, with one line on why. This section is what makes the closure test (P5) pass.
-   - **Plan** — ordered steps, each naming the files it touches.
+   - **Plan** — ordered steps, each naming the files it touches *and* the check that proves the step landed (a runnable command, or an observable state where no command exists). Per-step checks are what let the implementer — agent or human — stop at any step boundary with the repo working, instead of discovering at the end which of eight steps broke it.
    - **Acceptance criteria** — executable commands with expected outcomes (P3). Every criterion is a command a machine can run; "works correctly" is not a criterion. Include the toolchain's project-wide gates (test/lint/typecheck from `.claude/workflow/toolchain.json`) plus phase-specific commands.
    - **Out of scope** — what an eager implementer would wrongly include.
 
 4. **Closure self-test (P5).** Re-read the spec pretending you know nothing but
-   `CLAUDE.md` + this directory. Every file it tells you to touch: reachable from a
-   Context pointer? Every term: defined in the spec or in a pointed-to file? Fix the spec
-   until yes — a pointer you add now costs one line; the same knowledge missing at
+   `CLAUDE.md` + this directory — and pretending, in a second pass, to be a *person*
+   executing it by hand rather than an agent (`/implement-phase --implemented` is a
+   supported route, so this is not hypothetical). Every file it tells you to touch:
+   reachable from a Context pointer? Every term: defined in the spec or in a pointed-to
+   file? Every step: checkable without reading ahead to the Acceptance criteria? Fix the
+   spec until yes — a pointer you add now costs one line; the same knowledge missing at
    implementation time costs a blind repo search.
 
 5. **Update status** in `docs/phases/PHASES.md`: `pending` → `expanded`.

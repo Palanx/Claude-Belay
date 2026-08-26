@@ -3,9 +3,15 @@
 <!-- Written by /expand-phase, immediately before implementation, never earlier
      (P4). Amendable during implementation ONLY together with a Deviations
      entry in notes.md.
-     Closure test (P5): a session reading CLAUDE.md + this directory + the
-     files pointed to below must be able to complete the phase. If it would
-     need anything else, add the pointer or re-cut the phase. -->
+     Closure test (P5): a session — or a person — reading CLAUDE.md + this
+     directory + the files pointed to below must be able to complete the
+     phase. If either would need anything else, add the pointer or re-cut the
+     phase.
+     This file is the plan for both readers. Do NOT generate a separate
+     human-readable plan document beside it: /validate-phase judges the work
+     against THIS spec, so a second document drifts from it and one of the two
+     is lying. A rendering, if one is wanted anyway, is disposable,
+     regenerable and never authoritative. -->
 
 ## Goal
 
@@ -22,10 +28,16 @@ exists/works after this phase that didn't before.}}
 
 ## Plan
 
-<!-- Ordered. Each step names the files it touches. -->
+<!-- Ordered. Each step names the files it touches AND the check that proves
+     it landed: a runnable command, or an observable state where no command
+     exists ("the prefab opens with no missing-script warning"). A step
+     boundary with a passing check is a point where the repo is left working —
+     which is what lets a human stop between any two steps, and what makes an
+     agent converge in small loops (P3) instead of batching failure to the
+     end. If a step has no check, it is two steps or it is not a step. -->
 
-1. {{step}} — touches `{{path}}`
-2. {{step}} — touches `{{path}}`
+1. {{step}} — touches `{{path}}` — check: `{{command}}` → {{expected}}
+2. {{step}} — touches `{{path}}` — check: {{observable state}}
 
 ## Acceptance criteria
 
