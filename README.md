@@ -437,6 +437,25 @@ here?"), then:
 5. Existing code that violates the new rule does **not** get fixed in passing: that's a phase
    via `/plan-feature`, or a recorded contradiction. Same rule adoption already follows.
 
+**A finding is a fourth thing, and it is not a rule.** An expensive, verified fact about how
+the code *is* — where the obvious reading is wrong, and establishing it cost real work — goes
+to `docs/constraints.md` `§Observed conventions` with its reference file and the date it was
+checked. It never becomes an ADR: an ADR carries a `status` and is immutable, a finding has
+neither and stops being true the moment someone edits the code. Findings filed as ADRs corrupt
+`/plan-feature`, which reads ADR titles and status lines to decide what constrains a feature —
+a directory mixing decisions with facts can no longer answer "what binds me". Nor is it tech
+debt: debt is a defect left in place on purpose, and belongs to whatever debt log the project
+keeps.
+
+Wherever it lands, it lands **once**. A project that keeps path-scoped rule files
+(`.claude/rules/*.md` with `paths:`, `.cursor/rules/*.mdc` with `globs:`) has a better home
+for a domain-scoped finding than `constraints.md` does — those attach while the matching code
+is being edited, which is the only moment the fact is worth anything, and `constraints.md` is
+read whole and read late. Put it there and give it a pointer-table row in `CLAUDE.md`, so a
+session planning a feature can still reach it; never a copy in both. Authoring those files is
+method, so by the paragraphs above it is yours, not the package's — belay says which category
+the fact is, that it lands once, and what it must not become.
+
 ### Verifying the install (smoke test)
 
 Run from the target repo root — every step states its expected outcome:
@@ -552,8 +571,9 @@ Then:
 **Use:** the hooks (they gate a 3-line edit the same as a phase, and the commit guard
 also catches your own manual commits made through Claude), `docs/index/` + `CLAUDE.md`
 (cheap correct context for "what do you think of X" sessions), `docs/constraints.md` and
-ADRs (record the decisions you make by hand so Claude stops proposing against them), and
-`/security-check` whenever.
+ADRs (record the decisions you make by hand so Claude stops proposing against them, and the
+findings a session paid for under `§Observed conventions`, so the next session doesn't pay
+again), and `/security-check` whenever.
 
 **Skip:** `/plan-feature → /expand-phase → /implement-phase → /validate-phase`. For
 small asks, plain prompts are enough — the hooks still fire. The pipeline stays

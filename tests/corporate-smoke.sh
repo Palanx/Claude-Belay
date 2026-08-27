@@ -723,6 +723,16 @@ check "status vocabulary identical in both CLAUDE templates" \
 for s in pending expanded in-progress blocked "superseded by" done; do
   check "PHASES.md template defines status '$s'" grep -qF "$s" "$PKG/templates/PHASES.md"
 done
+# A finding is the one category with no artifact of its own: it lands in a section
+# of constraints.md that also holds something else. So the only thing keeping it
+# out of docs/adr/ is what the always-loaded CLAUDE.md says, and both variants
+# have to say it identically -- a project on the bootstrap template routing
+# findings differently from one on the adopted template is the corruption of
+# /plan-feature this sentence exists to prevent.
+FINDING='is a **finding**, not an ADR: it goes to `docs/constraints.md` `§Observed conventions`'
+check "finding routing identical in both CLAUDE templates" \
+  bash -c 'test "$(grep -lF "$2" "$1/templates/CLAUDE.bootstrap.md" "$1/templates/CLAUDE.adopted.md" | wc -l | tr -d " ")" = 2' \
+  _ "$PKG" "$FINDING"
 # Every §Section referenced anywhere in the shipped commands and templates must
 # exist in constraints.md — the file all of them mean by §. This is #10's class:
 # /expand-phase pointed at a "repair protocol in docs/constraints.md" that was

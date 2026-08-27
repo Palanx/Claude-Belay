@@ -38,9 +38,23 @@ the domain owns."}}
 <!-- Adopted projects: extracted from the code by /adopt-project, each with a
      real reference file. Bootstrapped projects: written as chosen, examples
      added as the first phases land. Following these beats any abstract ideal —
-     inconsistency costs more than imperfection. -->
+     inconsistency costs more than imperfection.
+     Findings live here too: an expensive, verified fact about how the code IS —
+     where the obvious reading is wrong — is not a decision, so it never becomes
+     an ADR. Same shape as a convention plus the date it was last checked against
+     its file. That date and that file make staleness derivable with no tooling
+     of its own: `git log --since="<date> 00:00" -- <file>` answers whether the
+     ground moved. The 00:00 is load-bearing: git fills a missing time with the
+     current one, so a bare date hides everything committed that same day.
+     A finding lives in exactly ONE place. If this project keeps path-scoped rule
+     files (.claude/rules/*.md with `paths:`, .cursor/rules/*.mdc with `globs:`),
+     a domain-scoped finding belongs there instead — they attach while the code is
+     being edited, which is when it matters, and this file is read whole and read
+     late. Then it is named in CLAUDE.md's pointer table, not copied here: a
+     command planning a feature has to be able to reach it. -->
 
 - {{convention}} — example: `{{path/to/real/file}}`
+- {{finding: what the obvious reading would be, and why it is wrong}} — verified {{YYYY-MM-DD}}: `{{path/to/real/file}}`
 
 ## Error handling
 
