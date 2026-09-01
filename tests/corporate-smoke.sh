@@ -794,6 +794,16 @@ check "/validate-phase defines the file set before the subagent step" \
   bash -c 'test "$(grep -n "phase.s file set" "$1" | head -1 | cut -d: -f1)" -lt \
            "$(grep -n "Dispatch ONE subagent" "$1" | cut -d: -f1)"' \
   _ "$PKG/commands/validate-phase.md"
+# A phase that goes round the validation loop once has its own spec.md in its diff:
+# step 5's `undecidable` route prescribes exactly that amendment. Step 6 must not then
+# read that amendment as the phase escaping its scope, or the loop cannot converge — and
+# notes.md and PHASES.md are in every phase's diff from round one.
+check "/validate-phase's closure test exempts the files the workflow writes" \
+  bash -c 'sec="$(sed -n "/Closure test/,/^## Mandatory/p" "$1")"
+           for p in spec.md notes.md PHASES.md docs/index/; do
+             printf "%s" "$sec" | grep -qF "$p" || exit 1
+           done' \
+  _ "$PKG/commands/validate-phase.md"
 # Every Plan step in the spec template and its example carries its own check, so
 # the repo is left working at each step boundary (a human can stop; an agent
 # converges in small loops instead of batching failure to the end).
