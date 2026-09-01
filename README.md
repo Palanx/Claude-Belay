@@ -631,7 +631,7 @@ same script for the same reason, and there is no per-caller variant to keep in s
 | Gate | What it does |
 |---|---|
 | `post-edit-gate.sh <file>` | runs whatever `toolchain.json` has for that file's extension — format, lint, and a file-scoped typecheck *where one exists* (several stacks have none: Node/TS typechecks project-wide only, Unity and Unreal not at all — `gaps` names each). Exit 2 returns the failure on stderr |
-| `boundary-check.sh <file>` | grep-heuristic check of `boundaries.rules` deny edges on that file |
+| `boundary-check.sh <file>` | grep-heuristic check of `boundaries.rules` deny edges on that file. Exit 2 returns the violation on stderr; exit 0 means no violation **or** no rule covering the file — including the fresh-install state where the rules file is still commented out |
 | `pre-commit-security.sh` | no arguments: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged. **Exit 2 means do not let this commit happen.** Corporate mode: also blocks commits while any belay state path shows in `git status` |
 
 | Adapter | Event | Calls |

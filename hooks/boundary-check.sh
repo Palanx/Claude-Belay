@@ -16,6 +16,20 @@
 # Catches the realistic violations (direct path imports); aliased or dynamic
 # imports can slip through — mirror the rule in CI with a real resolver if that
 # matters to you. Upgrade path: dependency-cruiser (js), import-linter (py).
+#
+# Exit codes:
+#   2  forbidden dependency found; stderr carries the rule and the offending lines.
+#   0  everything else — one verdict for two situations a caller cannot tell apart:
+#      checked and clean, or no rule reached the file (no boundaries.rules, no path
+#      argument, path is not a file, or the file sits under no declared `layer`
+#      prefix). The last is the normal state of a fresh install: install.sh writes
+#      the rules file fully commented out, so nothing is layered until
+#      /bootstrap-project or /adopt-project fills it in. That silence is deliberate —
+#      post-edit-gate.sh passes docs and engine assets the same way; out of scope by
+#      configuration is not a gap, and a per-file warning would fire on every edit.
+#   No other code is produced, and none may be added: edit-gate-adapter.sh and
+#   scripts/check.sh treat any non-zero as a violation, so a third code would reach
+#   the operator as a layering breach.
 set -u
 . "$(dirname "$0")/lib/common.sh"
 tc_init

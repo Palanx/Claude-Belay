@@ -44,6 +44,10 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
 3. **Boundary sweep.** Run `scripts/check.sh --files <every source file in the phase's
    file set>` (the file set is defined above). This is the same gate the edit path runs,
    re-run as a batch in case any edit bypassed it.
+   A rules file with no active `deny` line cannot flag anything, so a clean sweep proves
+   nothing. Check `grep -qE '^deny[[:space:]]' .claude/workflow/boundaries.rules` first; if it
+   finds none, report `not swept: no active deny rules` rather than `clean`. The gate is
+   silent about this by design (see its header) — the report must not be (P7).
    **Corporate mode** (`.claude/workflow/corporate` exists): also verify no belay state
    path appears in `git status --porcelain` — no line matching
    `^\?\? (\.belay/|CLAUDE\.local\.md|docs/(product|adr|phases|index|security|templates)/|docs/(constraints|adoption-report)\.md|scripts/build-index\.sh)`
@@ -92,7 +96,7 @@ Append to `docs/phases/$1/notes.md`:
 ## Validation — <date>
 - criteria: <n> passed / <n> failed
 - project gates: test <pass|fail|gap>, lint <...>, typecheck <...>
-- boundary sweep: <clean|violations listed above>
+- boundary sweep: <clean | not swept: no active deny rules | violations listed above>
 - independent review: <clean | contradicts: <what> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
 - verdict: <done | returned to implementation>

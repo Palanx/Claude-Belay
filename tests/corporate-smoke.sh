@@ -612,6 +612,20 @@ runcheck --files src/bad.js && bad "--files blocks a boundary violation" \
 check "--files names the violated rule" grep -q 'BOUNDARY VIOLATION' "$TMP/check.out"
 runcheck --files src/good.js && ok "--files passes a clean file" || bad "--files passes a clean file"
 
+# The gate's contract was underivable from its header: a wrapper built on it treated any
+# non-zero as a layering breach, so a broken hook would have been reported to the operator
+# as a violation. Every caller here (edit-gate-adapter, check.sh) folds non-zero into
+# "violation", so these pin 2 as the only failure code and keep the no-coverage cases at 0.
+bc() { (cd "$C" && CLAUDE_PROJECT_DIR="$C" ./.claude/hooks/boundary-check.sh "$@" >/dev/null 2>&1; echo $?); }
+check "boundary-check: violation exits exactly 2" test "$(bc src/bad.js)" = 2
+check "boundary-check: clean file in a layer exits 0" test "$(bc src/good.js)" = 0
+mkdir -p "$C/tools" && printf 'const t = 1\n' >"$C/tools/t.js"
+check "boundary-check: file under no declared layer exits 0" test "$(bc tools/t.js)" = 0
+mv "$C/.claude/workflow/boundaries.rules" "$C/.claude/workflow/boundaries.rules.off"
+check "boundary-check: no rules file exits 0" test "$(bc src/bad.js)" = 0
+mv "$C/.claude/workflow/boundaries.rules.off" "$C/.claude/workflow/boundaries.rules"
+rm -rf "$C/tools"
+
 # --staged: the human commit path. Same gates, addressed by what git has staged.
 cp "$PKG/hooks/pre-commit-security.sh" "$C/.claude/hooks/"
 gitq "$C" add -A >/dev/null; gitq "$C" commit -qm init
@@ -830,6 +844,10 @@ check "/validate-phase's closure test exempts the files the workflow writes" \
              printf "%s" "$sec" | grep -qF "$p" || exit 1
            done' \
   _ "$PKG/commands/validate-phase.md"
+# An inert boundaries.rules makes every file pass, so a sweep over it proves nothing. The
+# gate is silent about that by design; the validation report is what must not be (P7).
+check "/validate-phase distinguishes an unswept boundary sweep from a clean one" \
+  grep -q 'not swept: no active deny rules' "$PKG/commands/validate-phase.md"
 # The status that closes a feedback entry lived only in feedback-pending.sh's echo, so
 # the command that writes an entry never said how one is closed. Both files must name the
 # same string or the SessionStart listing and the operator drift apart.
