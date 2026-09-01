@@ -841,6 +841,15 @@ check "/implement-phase --implemented writes no source" \
   grep -q 'Do not touch source' "$PKG/commands/implement-phase.md"
 check "/validate-phase diffs against a recorded base ref, not just the working tree" \
   grep -q 'base: <ref>' "$PKG/commands/validate-phase.md"
+# ...and diffs that ref against the working tree, not <ref>..HEAD. With a real base ref
+# recorded while hand-written work is still uncommitted, ..HEAD shows only the committed
+# half — so the closure test, the boundary sweep and the starved review would all examine
+# an empty diff and all three report clean. The mirror of the failure the base ref exists
+# to fix, from the other side.
+check "/validate-phase's base-ref diff reaches uncommitted work" \
+  bash -c 'grep -qF "$2" "$1" && ! grep -qF "$3" "$1"' \
+  _ "$PKG/commands/validate-phase.md" \
+  'use `git diff <ref>` and `git diff --name-only <ref>`' '`git diff <ref>..HEAD`'
 check "/validate-phase defines the file set before the subagent step" \
   bash -c 'test "$(grep -n "phase.s file set" "$1" | head -1 | cut -d: -f1)" -lt \
            "$(grep -n "Dispatch ONE subagent" "$1" | cut -d: -f1)"' \

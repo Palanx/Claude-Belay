@@ -21,7 +21,10 @@ the working tree — `git status --porcelain` and `git diff` (run `git add -N` f
 new in this phase diff as something rather than nothing) — unioned with the files the
 spec's Plan names. **If `notes.md` records a `- base: <ref>` line** under Outcome (written
 by `/implement-phase --implemented`; the literal `working tree` means the default applies),
-use `git diff <ref>..HEAD` and `git diff --name-only <ref>..HEAD` instead, same union.
+use `git diff <ref>` and `git diff --name-only <ref>` instead, same union — the ref against
+the **working tree**, never `<ref>..HEAD`, which shows only what was committed and hides
+hand-written work still sitting uncommitted (`git add -N` first here too, for the same
+reason as above).
 Never fall back to the Plan alone: the file the Plan never named is exactly what step 6
 exists to catch, so a diff that cannot show it turns three gates into no-ops that report
 `pass`.
