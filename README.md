@@ -697,7 +697,9 @@ Generated markdown, one file per module plus `_overview.md` (module table, heuri
 dependency edges, entry points), stamped with the commit it was built at.
 Regenerate: `scripts/build-index.sh` (or `/refresh-index`). Staleness:
 `scripts/build-index.sh --check` — run automatically by `/plan-feature`,
-`/validate-phase`, `/refresh-index`. Corporate: `.belay/scripts/build-index.sh`, output
+`/validate-phase`, `/refresh-index`. It compares the working tree as well as the commit
+stamp: uncommitted source edits count as stale, because HEAD does not move during a phase
+and a commit-only check reports a drifting index as fresh. Corporate: `.belay/scripts/build-index.sh`, output
 in `.belay/docs/index/`.
 
 Format reasoning: markdown-per-module was chosen over a single JSON/SQLite artifact

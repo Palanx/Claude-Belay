@@ -7,8 +7,8 @@
 #
 #   scripts/build-index.sh          rebuild the index
 #   scripts/build-index.sh --check  exit 1 (with a message) if the index is
-#                                   stale relative to HEAD; used by
-#                                   /refresh-index and /validate-phase
+#                                   stale relative to the working tree or HEAD;
+#                                   used by /refresh-index and /validate-phase
 #
 # Format rationale: markdown-per-module, not one JSON blob, because the index
 # is read by sessions (one section at a time, P1), reviewed by humans, and
@@ -62,6 +62,35 @@ if [ "${1:-}" = "--check" ]; then
   [ -f "$OV" ] || { echo "index STALE: $OV missing — run scripts/build-index.sh"; exit 1; }
   stamp="$(grep -oE "$STAMP_RE" "$OV" | grep -oE '[0-9a-f]+|no-commits' | tail -1 || true)"
   [ -n "$stamp" ] || { echo "index STALE: no stamp in $OV — run scripts/build-index.sh"; exit 1; }
+
+  # The index is generated from the files on disk, so the working tree — not just HEAD —
+  # is what it drifts from. HEAD does not move during a phase, which made every check
+  # below a no-op for the whole window /validate-phase step 4 runs in.
+  # A path gone from disk is asked of the index, not of mtime: a deletion stays in
+  # `git status` until it is committed, so testing it by mtime would report STALE forever,
+  # including right after the rebuild that fixed it. Asking whether the index still names
+  # the file answers the real question and clears itself. Renames arrive as `old -> new`;
+  # awk emits both sides, so the vanished path and the new one are each judged on merit.
+  # belay-debt: mtime comparison, so an edit landing in the same clock tick as the build
+  # reads as fresh. Upgrade path: a second stamp line hashing the file list and contents,
+  # at the cost of reading every source file on a check whose whole point is being cheap.
+  drift=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if [ -e "$f" ] && [ "$f" -nt "$OV" ]; then
+      drift="$drift$f"$'\n'
+    elif [ ! -e "$f" ] && grep -rqF -- "$f" "$OUTDIR" 2>/dev/null; then
+      drift="$drift$f (gone, still indexed)"$'\n'
+    fi
+  done <<<"$(git status --porcelain -uall 2>/dev/null | sed 's/^...//' \
+             | awk '{ n = split($0, a, " -> "); for (i = 1; i <= n; i++) print a[i] }' \
+             | grep -E "\.($SRC_EXT)\$" | grep -vE '^(docs|\.claude)/' || true)"
+  if [ -n "$drift" ]; then
+    echo "index STALE: source files on disk changed after it was built — run scripts/build-index.sh"
+    printf '%s' "$drift" | sed 's/^/  /'
+    exit 1
+  fi
+
   [ "$stamp" = "$HEAD" ] && { echo "index fresh ($HEAD)"; exit 0; }
   if git diff --name-only "$stamp" HEAD 2>/dev/null | grep -qE "\.($SRC_EXT)\$"; then
     echo "index STALE: built at $stamp, HEAD is $HEAD and source files changed — run scripts/build-index.sh"

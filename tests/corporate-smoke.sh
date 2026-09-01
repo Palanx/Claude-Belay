@@ -372,6 +372,32 @@ check "index: line count not lost to word splitting" grep -q 'Lines: 1' "$I/docs
 check "index: --check reports fresh after a build" \
   bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index fresh"' \
   _ "$I" "$PKG"
+# --check was commit-relative only: HEAD does not move during a phase, so the stamp always
+# equalled HEAD and the check short-circuited to "fresh" however far the index had drifted
+# from the files on disk — a no-op for the window /validate-phase step 4 runs in. The edit
+# below is left uncommitted on purpose, which is the whole reported case; ageing the
+# overview alongside it keeps the mtime comparison off the clock's granularity.
+printf 'def f(): pass\ndef g(): pass\n' >"$I/src/a.py"
+touch -t 202001010000 "$I/docs/index/_overview.md"
+check "index: --check reports stale when source is newer than the index" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index STALE"' \
+  _ "$I" "$PKG"
+check "index: --check reports fresh again after the rebuild" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" >/dev/null &&
+           CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index fresh"' \
+  _ "$I" "$PKG"
+# A deletion stays in `git status` until it is committed, so judging a vanished path by
+# mtime would report STALE forever — including right after the rebuild that fixed it. The
+# operator who deletes a file by hand mid-phase (a blocked phase, --implemented) is exactly
+# who hits that, and a check that cannot go green is the defect this fix exists to remove.
+rm "$I/src/a.py"
+check "index: --check reports stale on an uncommitted source deletion" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index STALE"' \
+  _ "$I" "$PKG"
+check "index: --check clears once the deletion is rebuilt out of the index" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" >/dev/null &&
+           CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index fresh"' \
+  _ "$I" "$PKG"
 # A module name that itself contains a space must not leak into the page filename.
 J="$TMP/index-spacemod"
 mkdir -p "$J/My Game"
