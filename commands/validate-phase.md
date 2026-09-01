@@ -123,7 +123,11 @@ close, name the file on the `upstream:` line, and tell the operator to run
 `/belay-feedback`. This never blocks: `done` is decided by the gates. It is stated so it
 cannot be silent (P7) — a package defect patched into one project's `spec.md` is a defect
 the next project rediscovers from zero. Ownership decides this, not who fixes it: a wrong
-command in `toolchain.json` is yours; a command that routes a finding wrongly is not.
+command in `toolchain.json` is yours; a command that routes a finding wrongly is not. If the
+manifest is absent — an install old enough to predate it, never re-run — say so on the
+`upstream:` line instead of reading its silence as "nothing upstream", and tell the
+operator to re-run `install.sh`. Every criterion here reads the file from disk, so none
+of it depends on any of this being committed.
 
 ## Failure modes
 

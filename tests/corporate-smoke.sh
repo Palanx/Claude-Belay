@@ -872,6 +872,11 @@ check "/validate-phase says an unswept boundary sweep does not fail the phase" \
 check "/validate-phase routes a package-caused finding to /belay-feedback" \
   bash -c 'grep -q "^- upstream:" "$1" && grep -q "belay-feedback" "$1"' \
   _ "$PKG/commands/validate-phase.md"
+# The manifest is untracked in a normal install and absent from one old enough to predate
+# it. Without a clause for that, the grep finds nothing, every upstream cause reads as
+# project-local, and the laundering this whole route exists to stop resumes silently (P7).
+check "/validate-phase does not read a missing manifest as 'nothing upstream'" \
+  grep -q 'manifest is absent' "$PKG/commands/validate-phase.md"
 # The proactive prompt already existed; its trigger was "misfires", which a command that
 # behaves exactly as documented never looks like — so it never fired on the defect class
 # that produced three of the four entries in the feedback store.
