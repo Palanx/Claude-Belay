@@ -23,6 +23,12 @@ for f in "${files[@]}"; do
   done <"$f"
 done
 
+# belay-debt: the "re-run install.sh" line below rides on the open-entry listing, so it
+# stops printing exactly when the last entry is resolved and it becomes actionable.
+# Harmless today — installs-stale.sh reports the same consumers on every SessionStart,
+# keyed on the version stamp rather than on feedback state. Upgrade path: name each
+# entry's repo here as it closes, so the two hooks say which fix is missing where instead
+# of leaving the operator to join them by hand.
 [ "$open" -gt 0 ] || exit 0
 echo "belay feedback: $open open entries from consuming projects:"
 printf '%s' "$report"
