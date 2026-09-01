@@ -71,16 +71,24 @@ if [ "${1:-}" = "--check" ]; then
   # including right after the rebuild that fixed it. Asking whether the index still names
   # the file answers the real question and clears itself. Renames arrive as `old -> new`;
   # awk emits both sides, so the vanished path and the new one are each judged on merit.
-  # belay-debt: mtime comparison, so an edit landing in the same clock tick as the build
-  # reads as fresh. Upgrade path: a second stamp line hashing the file list and contents,
-  # at the cost of reading every source file on a check whose whole point is being cheap.
+  # belay-debt: an edit landing in the same clock tick as the build AND leaving the line
+  # count unchanged still reads as fresh. Upgrade path: a second stamp line hashing the
+  # file list and contents, at the cost of reading every source file on a check whose
+  # whole point is being cheap.
   drift=""
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    if [ -e "$f" ] && [ "$f" -nt "$OV" ]; then
+    if [ ! -e "$f" ]; then
+      if grep -rqF -- "$f" "$OUTDIR" 2>/dev/null; then drift="$drift$f (gone, still indexed)"$'\n'; fi
+    elif [ "$f" -nt "$OV" ]; then
       drift="$drift$f"$'\n'
-    elif [ ! -e "$f" ] && grep -rqF -- "$f" "$OUTDIR" 2>/dev/null; then
-      drift="$drift$f (gone, still indexed)"$'\n'
+    else
+      # mtime cannot see an edit that landed in the same clock tick as the build, so fall
+      # back to what the index already records about this file: its line count. Only files
+      # git already calls dirty are read, so the check stays cheap.
+      was="$(grep -hF -- "### $f (" "$OUTDIR"/*.md 2>/dev/null | sed -E 's/.*\(([0-9]+) lines\)$/\1/' | head -1 || true)"
+      now="$(wc -l <"$f" | tr -d ' ')"
+      if [ "$was" != "$now" ]; then drift="$drift$f (indexed at ${was:-no} lines, now $now)"$'\n'; fi
     fi
   done <<<"$(git status --porcelain -uall 2>/dev/null | sed 's/^...//' \
              | awk '{ n = split($0, a, " -> "); for (i = 1; i <= n; i++) print a[i] }' \

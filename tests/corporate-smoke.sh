@@ -398,6 +398,15 @@ check "index: --check clears once the deletion is rebuilt out of the index" \
   bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" >/dev/null &&
            CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index fresh"' \
   _ "$I" "$PKG"
+# mtime alone cannot see an edit that lands in the same clock tick as the build. Ageing the
+# file below the index reproduces that blind spot deterministically, without racing the
+# clock: the content differs, the timestamp says otherwise, and only the line count the
+# index already records can tell.
+printf 'x = 1\ny = 2\nz = 3\n' >"$I/src/a.py"
+touch -t 202001010000 "$I/src/a.py"
+check "index: --check catches an edit mtime cannot see" \
+  bash -c 'cd "$1" && CLAUDE_PROJECT_DIR="$1" "$2/scripts/build-index.sh" --check | grep -q "^index STALE"' \
+  _ "$I" "$PKG"
 # A module name that itself contains a space must not leak into the page filename.
 J="$TMP/index-spacemod"
 mkdir -p "$J/My Game"
