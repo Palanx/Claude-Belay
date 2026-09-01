@@ -661,6 +661,17 @@ printf '# a command a later release drops\n' >"$TMP/pkgnorm/commands/temp-thing.
 "$TMP/pkgnorm/install.sh" "$N" >/dev/null 2>&1
 check "manifest written" test -f "$N/.claude/workflow/installed"
 check "manifest lists a command" grep -qx '.claude/commands/plan-feature.md' "$N/.claude/workflow/installed"
+# /validate-phase decides "upstream" by asking whether the manifest lists the file, so the
+# manifest has to hold exactly the package-owned set. record() runs only inside copy_into,
+# which is why boundaries.rules (created separately) and toolchain.json (written by
+# detection) stay out — if that ever changes, attribution starts blaming the package for a
+# project's own config.
+check "installed manifest excludes project-owned files" \
+  bash -c '! grep -qxF ".claude/workflow/boundaries.rules" "$1/.claude/workflow/installed" &&
+           ! grep -qxF ".claude/workflow/toolchain.json" "$1/.claude/workflow/installed"' _ "$N"
+check "installed manifest holds the package files attribution points at" \
+  bash -c 'grep -qxF ".claude/hooks/boundary-check.sh" "$1/.claude/workflow/installed" &&
+           grep -qxF ".claude/commands/validate-phase.md" "$1/.claude/workflow/installed"' _ "$N"
 printf 'the project own command\n' >"$N/.claude/commands/my-own.md"
 "$PKG/install.sh" "$N" >"$TMP/install15.log" 2>&1 \
   && ok "normal re-install after an upstream deletion exits 0" \
@@ -848,6 +859,19 @@ check "/validate-phase's closure test exempts the files the workflow writes" \
 # gate is silent about that by design; the validation report is what must not be (P7).
 check "/validate-phase distinguishes an unswept boundary sweep from a clean one" \
   grep -q 'not swept: no active deny rules' "$PKG/commands/validate-phase.md"
+# Two verdicts, two destinations, both inside this project: a package defect arrived as
+# `undecidable`, got patched into one project's spec.md prose, and the next project
+# rediscovered it from zero. Attribution is stated on its own line, and never blocks.
+check "/validate-phase routes a package-caused finding to /belay-feedback" \
+  bash -c 'grep -q "^- upstream:" "$1" && grep -q "belay-feedback" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
+# The proactive prompt already existed; its trigger was "misfires", which a command that
+# behaves exactly as documented never looks like — so it never fired on the defect class
+# that produced three of the four entries in the feedback store.
+check "both CLAUDE templates trigger /belay-feedback on a correct-but-wrong command" \
+  bash -c 'grep -qF "documented behaviour is itself the defect" "$1" &&
+           grep -qF "documented behaviour is itself the defect" "$2"' \
+  _ "$PKG/templates/CLAUDE.bootstrap.md" "$PKG/templates/CLAUDE.adopted.md"
 # The status that closes a feedback entry lived only in feedback-pending.sh's echo, so
 # the command that writes an entry never said how one is closed. Both files must name the
 # same string or the SessionStart listing and the operator drift apart.

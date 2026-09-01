@@ -75,7 +75,7 @@ superseding ADR, never a silent edit.
 - Every command that does work ends by writing its outcome to disk (notes, status). A session's undocumented knowledge is lost knowledge.
 - Decisions that constrain the future get an ADR in `docs/adr/` before the code lands.
 - A verified fact about how the code *is* — where the obvious reading is wrong, established at real cost — is a **finding**, not an ADR: it goes to `docs/constraints.md` `§Observed conventions` with its reference file and the date it was checked — or to the path-scoped rule file the pointer table names, if this project keeps one. One place, never both. An ADR has a status and is immutable; a finding has neither and stops being true when the code changes.
-- If a Belay hook or command misfires (false positive, wrong tool command, unhandled case) or a workflow step causes friction, say so and offer `/belay-feedback` — the only channel back to the workflow package.
+- If a Belay hook or command misfires (false positive, wrong tool command, unhandled case), behaves exactly as documented where the documented behaviour is itself the defect, or a workflow step causes friction, say so and offer `/belay-feedback` — the only channel back to the workflow package.
 
 ## Pointer table — where everything else lives
 

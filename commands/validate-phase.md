@@ -99,6 +99,7 @@ Append to `docs/phases/$1/notes.md`:
 - boundary sweep: <clean | not swept: no active deny rules | violations listed above>
 - independent review: <clean | contradicts: <what> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
+- upstream: <none | <package file(s)> — /belay-feedback recommended>
 - verdict: <done | returned to implementation>
 ```
 
@@ -109,6 +110,16 @@ next iteration. Where that iteration happens depends on what failed: steps 1–4
 failure or an `undecidable` verdict is fixed in `spec.md` plus a notes.md Deviations entry
 and re-validated from here (the record is wrong). Say which of the two you are handing
 back, or the next session guesses.
+
+**Both routes fix this project. Neither asks what caused the finding.** If the file that
+misbehaved is one `.claude/workflow/installed` names — the manifest of everything
+`install.sh` wrote: the hooks, the commands, `scripts/build-index.sh`, `docs/templates/` —
+the cause is the package and the fix above is a workaround. Apply it anyway so the phase can
+close, name the file on the `upstream:` line, and tell the operator to run
+`/belay-feedback`. This never blocks: `done` is decided by the gates. It is stated so it
+cannot be silent (P7) — a package defect patched into one project's `spec.md` is a defect
+the next project rediscovers from zero. Ownership decides this, not who fixes it: a wrong
+command in `toolchain.json` is yours; a command that routes a finding wrongly is not.
 
 ## Failure modes
 
