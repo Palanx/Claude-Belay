@@ -47,7 +47,11 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    A rules file with no active `deny` line cannot flag anything, so a clean sweep proves
    nothing. Check `grep -qE '^deny[[:space:]]' .claude/workflow/boundaries.rules` first; if it
    finds none, report `not swept: no active deny rules` rather than `clean`. The gate is
-   silent about this by design (see its header) — the report must not be (P7).
+   silent about this by design (see its header) — the report must not be (P7). That is a
+   stated gap, not a failure: it never sends the phase back to `/implement-phase`, because
+   no code change can add a `deny` rule. Leaving the rules inert until the humans decide
+   the layering is a supported state (`/adopt-project`, "codebase too inconsistent to infer
+   layering"), and a phase must be able to close in it.
    **Corporate mode** (`.claude/workflow/corporate` exists): also verify no belay state
    path appears in `git status --porcelain` — no line matching
    `^\?\? (\.belay/|CLAUDE\.local\.md|docs/(product|adr|phases|index|security|templates)/|docs/(constraints|adoption-report)\.md|scripts/build-index\.sh)`

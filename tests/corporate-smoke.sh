@@ -859,6 +859,13 @@ check "/validate-phase's closure test exempts the files the workflow writes" \
 # gate is silent about that by design; the validation report is what must not be (P7).
 check "/validate-phase distinguishes an unswept boundary sweep from a clean one" \
   grep -q 'not swept: no active deny rules' "$PKG/commands/validate-phase.md"
+# ...and says it is not a failure. The routing paragraph sends "steps 1-4" back to
+# /implement-phase, and /adopt-project deliberately leaves boundaries.rules inert where the
+# layering is still a human decision — so an unswept sweep read as a step-3 failure would
+# bounce every phase of such a project at code that can never add a deny rule.
+check "/validate-phase says an unswept boundary sweep does not fail the phase" \
+  bash -c 'sed -n "/Boundary sweep/,/Corporate mode/p" "$1" | grep -q "not a failure"' \
+  _ "$PKG/commands/validate-phase.md"
 # Two verdicts, two destinations, both inside this project: a package defect arrived as
 # `undecidable`, got patched into one project's spec.md prose, and the next project
 # rediscovered it from zero. Attribution is stated on its own line, and never blocks.
