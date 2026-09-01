@@ -46,6 +46,11 @@ that record — with the concrete data needed to reproduce the issue.
    proposed fix: <if known, else omit the line>
    ```
 
+   `open` is the only status an entry is ever written with. The package repo is what
+   closes it — `status: resolved (<commit>)`, naming the commit that fixed it — and that
+   is what drops the entry off the SessionStart listing there
+   (`scripts/feedback-pending.sh`). Nothing in a consuming project edits a status.
+
 ## Mandatory final step (P6)
 
 Confirm to the operator: which file the entry was appended to and which component it

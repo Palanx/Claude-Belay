@@ -804,6 +804,12 @@ check "/validate-phase's closure test exempts the files the workflow writes" \
              printf "%s" "$sec" | grep -qF "$p" || exit 1
            done' \
   _ "$PKG/commands/validate-phase.md"
+# The status that closes a feedback entry lived only in feedback-pending.sh's echo, so
+# the command that writes an entry never said how one is closed. Both files must name the
+# same string or the SessionStart listing and the operator drift apart.
+check "belay-feedback and feedback-pending name the same closing status" \
+  bash -c 'grep -qF "resolved (<commit>)" "$1" && grep -qF "resolved (<commit>)" "$2"' \
+  _ "$PKG/commands/belay-feedback.md" "$PKG/scripts/feedback-pending.sh"
 # Every Plan step in the spec template and its example carries its own check, so
 # the repo is left working at each step boundary (a human can stop; an agent
 # converges in small loops instead of batching failure to the end).
