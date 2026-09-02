@@ -19,6 +19,18 @@
 # toolchain.manual.json, CLAUDE.md, docs/*) are never clobbered. toolchain.json
 # is not clobbered here either, but detection rewrites it whole on every
 # /refresh-index — hand-written commands belong in toolchain.manual.json.
+#
+# belay-debt: a project-owned file is seeded from a template once and never revisited, so
+# improving that template reaches new projects only. 436b7a3 is the case that proved it
+# costly: it added a sentence to templates/CLAUDE.*.md that /validate-phase's starved
+# reviewer needs, and every existing install had to be edited by hand or kept returning the
+# same `undecidable` on every phase. The write itself must stay forbidden — CLAUDE.md is
+# tracked in the target, and the installer may never change tracked behaviour for a team
+# (see CLAUDE.md, "What the installer may write"). So the ceiling is not the missing write,
+# it is the missing notice: nothing tells an operator their seeded copy is behind. Upgrade
+# path: stamp each project-owned file with the template commit it was seeded from and have
+# scripts/installs-stale.sh name the ones whose template has moved since — a gap stated, in
+# the shape P7 already uses, never an automatic edit.
 # Hook *wiring* is package-owned too: belay's own entries in settings.json are replaced on every
 # re-install (see rewire()), so a hook added to the package reaches projects
 # that are already installed. Entries the project added itself survive.
