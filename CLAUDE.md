@@ -113,6 +113,16 @@ generalized from a private repo gets audited before it lands, examples included.
   no JSON parser available — never exit 0 as if they had run.
 - Deliberate shortcuts are marked `belay-debt:` with the ceiling and the upgrade
   path. Not `TODO`.
+- **A decision lands in the artifact it constrains, never in the commit message.**
+  Nobody greps the history before editing a file. A decision about one file goes in that
+  file, beside what it constrains — that is why every gate header carries its rationale.
+  A decision that constrains **more than one file** has no such home: write it as an ADR in
+  `docs/adr/`, using this package's own `templates/adr.md`. The threshold is exactly that
+  question, and the half worth writing is the rejected alternative — the commit message
+  keeps the choice and loses the reasons it beat the others.
+- **When a decision creates a fact two files must share, its assert is part of the
+  decision** — not of the bugfix that finds them disagreeing later. Every documentation
+  assert in the suite was written reactively, after a contradiction had already shipped.
 - Commits: Conventional Commits.
 - `README.md` is the user-facing contract. A behaviour change it does not
   describe is unfinished work, not a follow-up.
@@ -125,6 +135,7 @@ generalized from a private repo gets audited before it lands, examples included.
 | What each command promises | `commands/<name>.md` (preconditions, reads, writes, failure modes) |
 | Open bugs reported from consuming projects | `~/.claude-belay/feedback/` (listed at SessionStart) |
 | Which installs are behind HEAD | `scripts/installs-stale.sh` (also at SessionStart) |
-| The design principles P1–P8 | `README.md` § Design principles |
+| The design principles P1–P9 | `README.md` § Design principles |
+| Why a cross-file decision was taken, and what it beat | `docs/adr/` (this package's own, not a target's) |
 | Running the gates by hand (categories, `--files`, `--staged`) | `scripts/check.sh --help`, `README.md` § The enforcement layer |
 | Escape hatch when detection misses a stack | `README.md` § When your stack isn't detected |

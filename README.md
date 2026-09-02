@@ -33,8 +33,9 @@ those failures.
 | P4 | Two resolutions of planning | `PHASES.md` index up front; `spec.md` just-in-time per phase |
 | P5 | Phase closure test | `CLAUDE.md` + phase dir must suffice; checked in `/validate-phase` |
 | P6 | Filesystem is the only durable channel | every command ends by writing notes/status to disk |
-| P7 | Detect, don't assume, the toolchain | `detect-toolchain.sh` writes `toolchain.json`; gaps are loud |
+| P7 | A check that examined nothing says so | never `pass` by vacuity: `detect-toolchain.sh` writes a `gaps` entry instead of guessing a command, `gap_warn` names the category it could not run, `--check` reports stale rather than fresh on a tree it has not compared, and a boundary sweep over inert rules reports `not swept`, not `clean` |
 | P8 | One pipeline, two entry points | `/bootstrap-project` and `/adopt-project` converge on the same *pipeline* state — every command downstream reads the same files either way (the two differ only in what only one of them can know: requirements vs an adoption report) |
+| P9 | Every gate result has a reachable remedy | a result names what fixes it *and* someone who can apply it — routing a finding to `/implement-phase` when no code change can clear it (an undecided layering, a spec the command itself mandated) is the bug; a verdict the operator cannot turn green is one they learn to ignore |
 
 ## The pipeline
 

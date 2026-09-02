@@ -934,6 +934,24 @@ check "both CLAUDE templates trigger /belay-feedback on a correct-but-wrong comm
 check "belay-feedback and feedback-pending name the same closing status" \
   bash -c 'grep -qF "resolved (<commit>)" "$1" && grep -qF "resolved (<commit>)" "$2"' \
   _ "$PKG/commands/belay-feedback.md" "$PKG/scripts/feedback-pending.sh"
+
+# CLAUDE.md's pointer table is the only thing loaded every session, so an ADR directory it
+# does not name is one nobody opens — and a pointer at an empty directory is worse. The
+# range it cites has to match the table it points at, or it sends people looking for a
+# principle that is not there.
+check "CLAUDE.md points at the package's own ADRs, and they exist" \
+  bash -c 'grep -q "docs/adr/" "$1/CLAUDE.md" && ls "$1"/docs/adr/*.md >/dev/null 2>&1' _ "$PKG"
+check "the principle range CLAUDE.md cites matches the README table" \
+  bash -c 'hi="$(grep -oE "^\| P[0-9]+ " "$1/README.md" | grep -oE "[0-9]+" | sort -n | tail -1)"
+           grep -qE "P1.?P$hi" "$1/CLAUDE.md"' _ "$PKG"
+# The package ships templates/adr.md and tells its consumers to use it. An ADR here that
+# drifts from that shape is the same two-files-disagree bug, one level up.
+check "every package ADR follows the shipped template's shape" \
+  bash -c 'for f in "$1"/docs/adr/*.md; do
+             for h in "- Status:" "## Context" "## Decision" "## Consequences"; do
+               grep -qF -- "$h" "$f" || exit 1
+             done
+           done' _ "$PKG"
 # Every Plan step in the spec template and its example carries its own check, so
 # the repo is left working at each step boundary (a human can stop; an agent
 # converges in small loops instead of batching failure to the end).
