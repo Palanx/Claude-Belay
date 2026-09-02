@@ -14,7 +14,7 @@ marked `done` is load-bearing for every phase that depends on it.
 **Preconditions:** `docs/phases/$1/spec.md` and `notes.md` exist; PHASES.md status is `in-progress`. Missing notes.md means `/implement-phase` skipped its mandatory final step — go back and write it first; validation validates the record as well as the code.
 
 **Reads:** `docs/phases/$1/spec.md` + `notes.md`, `.claude/workflow/toolchain.json` (via `scripts/check.sh`), `docs/phases/PHASES.md`.
-**Writes:** `docs/phases/$1/notes.md` (validation record appended), `docs/phases/PHASES.md` (status → `done` on pass only).
+**Writes:** `docs/phases/$1/notes.md` (validation record appended), `docs/phases/PHASES.md` (status → `done` on pass only; → `pending` when the iteration-3+ escape below fires, which is the one time this command moves a phase backwards).
 
 **The phase's file set and diff** — defined once here, used by steps 3, 5 and 6. Default:
 the working tree — `git status --porcelain` and `git diff` (run `git add -N` first so files
@@ -115,7 +115,7 @@ Append to `docs/phases/$1/notes.md`:
 - independent review: <clean | contradicts: <what> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
 - upstream: <none | <package file(s)> — /belay-feedback recommended>
-- verdict: <done | returned to implementation>
+- verdict: <done | returned to implementation | escaped to /expand-phase: spec re-expanded>
 ```
 
 On full pass: PHASES.md status → `done`. On any failure: status stays `in-progress`;
@@ -142,7 +142,7 @@ of it depends on any of this being committed.
 
 ## Failure modes
 
-- **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3); if you're on iteration 3+, the spec is wrong — stop and say so, and route it: a wrong *spec* is re-expanded (status back to `pending`, `/expand-phase $1`), a wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
+- **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3); if you're on iteration 3+ (count the `## Validation` sections already in notes.md), the spec is wrong — stop and say so, and route it. A wrong *spec* is re-expanded: **set the status to `pending` yourself** and hand the operator `/expand-phase $1`. Do not leave that flip to them — `/expand-phase` refuses any other status, so a route nobody performs is a route that ends in a bounce, and the phase iterates a sixth time instead (P9). Say in the report that you moved it. A wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
 - **The code was written by a human** (`/implement-phase --implemented`) → nothing here changes: every gate above judges the code and the record, not the author. If anything the independent review is *stronger*, because the reviewer cannot be told what the human meant — but it is also the first gate this code meets at all, since the edit-time hooks only see edits made through the agent. Read step 2's and step 3's output as new information, not as a re-check.
 - **Review verdicts split by consequence** — `contradicts` is a code bug (the loop above); `undecidable` is a spec bug, so the fix is a pointer in spec.md (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
 - **Everything passes but the closure test** → still a failure: status stays `in-progress`. The code may well be right; the *record* isn't, and the next phase is what pays for that. It is also the cheapest failure here to clear, so clear it rather than arguing with it: name the stray file in the spec's Plan, or add the pointer the reviewer could not resolve, then write the Deviations entry that any spec amendment requires and re-run. A phase marked `done` asserts that a cold session can rebuild its context from the spec — that is exactly what the closure test measures, so `done` on a failed closure test would make the word mean nothing.

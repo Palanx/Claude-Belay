@@ -915,6 +915,17 @@ check "/validate-phase catches a sweep whose file set no layer covers" \
 check "/validate-phase says an unswept boundary sweep does not fail the phase" \
   bash -c 'sed -n "/Boundary sweep/,/Corporate mode/p" "$1" | grep -q "not a failure"' \
   _ "$PKG/commands/validate-phase.md"
+# The iteration-3+ escape prescribed a status flip to `pending` that no command performed,
+# and /expand-phase refuses any other status — a route ending in a bounce, which is P9's bug.
+# The command that detects the escape now applies it, so its Writes contract has to say so.
+check "/validate-phase performs the status flip its escape prescribes" \
+  bash -c 'sed -n "/^\*\*Writes:/p" "$1" | grep -q "pending"' _ "$PKG/commands/validate-phase.md"
+# A re-expansion has the implementation sitting in the tree, and writing the spec from it is
+# how a validation passes while proving nothing. notes.md existing is the signal; no new
+# status value is needed to carry it.
+check "/expand-phase detects a re-expansion from notes.md" \
+  bash -c 'grep -qF "Is this a re-expansion" "$1" && grep -qF "from the tree" "$1"' \
+  _ "$PKG/commands/expand-phase.md"
 # Two verdicts, two destinations, both inside this project: a package defect arrived as
 # `undecidable`, got patched into one project's spec.md prose, and the next project
 # rediscovered it from zero. Attribution is stated on its own line, and never blocks.

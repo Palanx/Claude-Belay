@@ -15,10 +15,23 @@ into the plan: the spec is written *after* the phases it depends on have reveale
 1. Phase `$1` exists in `docs/phases/PHASES.md` with status `pending`. (`expanded`/`in-progress` → it's already past this step; `done` → nothing to do; `blocked` → `/implement-phase` resumes it, not this command; `superseded by <ids>` → this cut was replaced, expand one of those ids instead.)
 2. Every phase in its `depends` column has status `done`. If not, name the unmet dependencies *and what each one needs*, because the three ways to be un-`done` need different people: `pending`/`expanded`/`in-progress` needs the pipeline to reach it, `blocked: <reason>` needs the operator to answer that reason, and `superseded by <ids>` means this phase's `depends` is stale — it must be repointed at the replacement ids (a `/plan-feature` re-cut step, see that command). Expanding on top of unfinished dependencies produces a spec built on guesses, which is the exact failure P4 exists to prevent.
 
-**Reads:** `CLAUDE.md`, `docs/phases/PHASES.md`, for each dependency: `docs/phases/<dep>/spec.md` and **especially** `notes.md` (deviations and debt recorded there are the ground truth the original plan lacked), `docs/constraints.md`, the `docs/index/` sections for the modules this phase touches, any ADRs the phase touches.
+**Reads:** `CLAUDE.md`, `docs/phases/PHASES.md`, `docs/phases/$1/notes.md` if it exists (step 0), for each dependency: `docs/phases/<dep>/spec.md` and **especially** `notes.md` (deviations and debt recorded there are the ground truth the original plan lacked), `docs/constraints.md`, the `docs/index/` sections for the modules this phase touches, any ADRs the phase touches.
 **Writes:** `docs/phases/$1/spec.md`, `docs/phases/PHASES.md` (status → `expanded`).
 
 ## Steps
+
+0. **Is this a re-expansion?** `docs/phases/$1/notes.md` exists ⟺ this phase has already
+   been implemented at least once, and a `pending` status therefore came from
+   `/validate-phase`'s iteration-3+ escape, not from a fresh cut. If it exists, read it
+   first — all of it, including every validation round — and then hold one rule for the
+   rest of this command: **derive the spec from the row's Goal and from those notes, never
+   from the tree.** The code is right there and it is the wrong source: a spec written to
+   match the implementation makes the next validation pass while proving nothing, which is
+   the failure the starved reviewer in `/validate-phase` step 5 exists to catch. Where the
+   code and the Goal disagree, the code is what changes — say so in the spec's Plan, so the
+   next `/implement-phase --implemented` knows it is owed an edit and not just a record.
+   `notes.md` is never rewritten here; it is the only account of what the earlier rounds
+   found.
 
 1. **Absorb what changed.** Read the `notes.md` of every dependency phase. List every
    deviation and piece of debt that affects this phase. If a dependency's deviation
