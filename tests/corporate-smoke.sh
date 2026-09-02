@@ -926,6 +926,14 @@ check "/validate-phase performs the status flip its escape prescribes" \
 check "/expand-phase detects a re-expansion from notes.md" \
   bash -c 'grep -qF "Is this a re-expansion" "$1" && grep -qF "from the tree" "$1"' \
   _ "$PKG/commands/expand-phase.md"
+# /expand-phase turns the index into the spec's Context pointers, which is the section that
+# makes the closure test pass — so it was the one command reading the index without ever
+# checking it, and a stale one there fails a gate two commands downstream. All four commands
+# that touch the index must check it.
+check "every command that reads the index checks its freshness" \
+  bash -c 'for c in plan-feature expand-phase validate-phase refresh-index; do
+             grep -qF "build-index.sh --check" "$1/commands/$c.md" || exit 1
+           done' _ "$PKG"
 # Two verdicts, two destinations, both inside this project: a package defect arrived as
 # `undecidable`, got patched into one project's spec.md prose, and the next project
 # rediscovered it from zero. Attribution is stated on its own line, and never blocks.

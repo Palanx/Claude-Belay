@@ -16,11 +16,20 @@ into the plan: the spec is written *after* the phases it depends on have reveale
 2. Every phase in its `depends` column has status `done`. If not, name the unmet dependencies *and what each one needs*, because the three ways to be un-`done` need different people: `pending`/`expanded`/`in-progress` needs the pipeline to reach it, `blocked: <reason>` needs the operator to answer that reason, and `superseded by <ids>` means this phase's `depends` is stale — it must be repointed at the replacement ids (a `/plan-feature` re-cut step, see that command). Expanding on top of unfinished dependencies produces a spec built on guesses, which is the exact failure P4 exists to prevent.
 
 **Reads:** `CLAUDE.md`, `docs/phases/PHASES.md`, `docs/phases/$1/notes.md` if it exists (step 0), for each dependency: `docs/phases/<dep>/spec.md` and **especially** `notes.md` (deviations and debt recorded there are the ground truth the original plan lacked), `docs/constraints.md`, the `docs/index/` sections for the modules this phase touches, any ADRs the phase touches.
-**Writes:** `docs/phases/$1/spec.md`, `docs/phases/PHASES.md` (status → `expanded`).
+**Writes:** `docs/phases/$1/spec.md`, `docs/phases/PHASES.md` (status → `expanded`), `docs/index/` (only if step 1 finds it stale).
 
 ## Steps
 
-0. **Is this a re-expansion?** `docs/phases/$1/notes.md` exists ⟺ this phase has already
+1. **Freshness.** Run `scripts/build-index.sh --check`; if stale, run
+   `scripts/build-index.sh`. Step 4 turns the index into this spec's Context pointers, and
+   that section is what makes the closure test pass (P5) — so a stale index here does not
+   merely inconvenience the reading, it writes pointers at files that moved and fails the
+   closure test two commands later, where nobody can see where it came from. The pipeline
+   usually leaves the index fresh (`/plan-feature` checks it, `/validate-phase` rebuilds it
+   at the end of every phase); the two cases that reach here stale are a re-expansion, where
+   the phase never passed validation, and a hand-driven project, where no pipeline ran.
+
+2. **Is this a re-expansion?** `docs/phases/$1/notes.md` exists ⟺ this phase has already
    been implemented at least once, and a `pending` status therefore came from
    `/validate-phase`'s iteration-3+ escape, not from a fresh cut. If it exists, read it
    first — all of it, including every validation round — and then hold one rule for the
@@ -31,9 +40,12 @@ into the plan: the spec is written *after* the phases it depends on have reveale
    code and the Goal disagree, the code is what changes — say so in the spec's Plan, so the
    next `/implement-phase --implemented` knows it is owed an edit and not just a record.
    `notes.md` is never rewritten here; it is the only account of what the earlier rounds
-   found.
+   found. Step 1 is not an exception to this rule: the index is *derived* from the tree but
+   is used only to locate files, and naming a file that exists is required either way. The
+   trap is writing the Goal or the Plan to match what the code does — never refusing to
+   find out where the code is.
 
-1. **Absorb what changed.** Read the `notes.md` of every dependency phase. List every
+3. **Absorb what changed.** Read the `notes.md` of every dependency phase. List every
    deviation and piece of debt that affects this phase. If a dependency's deviation
    invalidates this phase's one-line goal, STOP — that is a re-plan, not an expansion.
    Tell the operator which phases need re-cutting and why, and hand it to `/plan-feature`
@@ -41,17 +53,17 @@ into the plan: the spec is written *after* the phases it depends on have reveale
    the replacements are appended. Do not fix it here by quietly writing a spec for a
    different goal than the row states — the index has to stay true.
 
-2. **Scope the reading.** From the index, list the exact files this phase will read or
+4. **Scope the reading.** From the index, list the exact files this phase will read or
    modify. These become the spec's Context pointers.
 
-3. **Write the spec** at `docs/phases/$1/spec.md` from `docs/templates/spec.md`:
+5. **Write the spec** at `docs/phases/$1/spec.md` from `docs/templates/spec.md`:
    - **Goal** — the index one-liner, expanded to a paragraph of *observable behavior*.
    - **Context pointers** — every file a fresh session must read, with one line on why. This section is what makes the closure test (P5) pass.
    - **Plan** — ordered steps, each naming the files it touches *and* the check that proves the step landed (a runnable command, or an observable state where no command exists). Per-step checks are what let the implementer — agent or human — stop at any step boundary with the repo working, instead of discovering at the end which of eight steps broke it.
    - **Acceptance criteria** — executable commands with expected outcomes (P3). Every criterion is a command a machine can run; "works correctly" is not a criterion. Include the toolchain's project-wide gates (test/lint/typecheck from `.claude/workflow/toolchain.json`) plus phase-specific commands.
    - **Out of scope** — what an eager implementer would wrongly include.
 
-4. **Closure self-test (P5).** Re-read the spec pretending you know nothing but
+6. **Closure self-test (P5).** Re-read the spec pretending you know nothing but
    `CLAUDE.md` + this directory — and pretending, in a second pass, to be a *person*
    executing it by hand rather than an agent (`/implement-phase --implemented` is a
    supported route, so this is not hypothetical). Every file it tells you to touch:
@@ -60,7 +72,7 @@ into the plan: the spec is written *after* the phases it depends on have reveale
    spec until yes — a pointer you add now costs one line; the same knowledge missing at
    implementation time costs a blind repo search.
 
-5. **Update status** in `docs/phases/PHASES.md`: `pending` → `expanded`.
+7. **Update status** in `docs/phases/PHASES.md`: `pending` → `expanded`.
 
 ## Mandatory final step (P6)
 
