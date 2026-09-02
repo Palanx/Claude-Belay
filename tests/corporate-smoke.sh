@@ -415,6 +415,23 @@ gitq "$J" init -q && gitq "$J" add -A && gitq "$J" commit -qm init
 (cd "$J" && CLAUDE_PROJECT_DIR="$J" "$PKG/scripts/build-index.sh") >/dev/null 2>&1
 check "index: spaced module name slugged, not split" test -f "$J/docs/index/My-Game.md"
 
+# Nothing pinned the `## Depends on` section, so the edge scan could be rewritten or broken
+# in silence. These three cover the two branches the matcher has — the full module key and
+# the delimited basename — plus the negative case.
+L="$TMP/index-edges"
+mkdir -p "$L/src/api" "$L/src/db" "$L/src/lonely"
+printf 'import c from "../db/conn"\nexport const q = 1\n' >"$L/src/api/a.js"
+printf 'export const conn = 1\n' >"$L/src/db/conn.js"
+printf 'export const alone = 1\n' >"$L/src/lonely/x.js"
+gitq "$L" init -q && gitq "$L" add -A && gitq "$L" commit -qm init
+(cd "$L" && CLAUDE_PROJECT_DIR="$L" "$PKG/scripts/build-index.sh") >/dev/null 2>&1
+check "index: edge detected from an import naming the module" \
+  bash -c 'sed -n "/^## Depends on/,\$p" "$1/docs/index/src-api.md" | grep -q "src/db"' _ "$L"
+check "index: a module importing nothing declares none" \
+  bash -c 'sed -n "/^## Depends on/,\$p" "$1/docs/index/src-lonely.md" | grep -q "_none detected_"' _ "$L"
+check "index: the overview lists the edge" \
+  grep -q 'src/api -> src/db' "$L/docs/index/_overview.md"
+
 # A source-free repo exited 0 without writing _overview.md, so --check said
 # STALE forever while the rebuild it prescribes wrote nothing — an unbreakable
 # loop for /plan-feature step 1 on a greenfield project.
