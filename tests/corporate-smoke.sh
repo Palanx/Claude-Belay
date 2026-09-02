@@ -932,6 +932,12 @@ check "/validate-phase says an unswept boundary sweep does not fail the phase" \
 # The command that detects the escape now applies it, so its Writes contract has to say so.
 check "/validate-phase performs the status flip its escape prescribes" \
   bash -c 'sed -n "/^\*\*Writes:/p" "$1" | grep -q "pending"' _ "$PKG/commands/validate-phase.md"
+# ...and counts rounds against the current spec, not for the phase's lifetime. The escape's
+# own verdict is the reset point: without it, a phase that escapes once is permanently in
+# escape territory and every later round demands re-expanding a spec written one round ago.
+check "/validate-phase counts iterations against the current spec" \
+  bash -c 'grep -qF "against the current spec" "$1" && grep -qF "escaped to /expand-phase\` verdict" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
 # A re-expansion has the implementation sitting in the tree, and writing the spec from it is
 # how a validation passes while proving nothing. notes.md existing is the signal; no new
 # status value is needed to carry it.
