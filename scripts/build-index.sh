@@ -202,16 +202,24 @@ while IFS= read -r m; do
     done <<<"$mfiles"
   } >"$page"
 
-  # belay-debt: O(modules²) substring scan for edges; fine below ~100 modules,
-  # switch to a real import resolver if it ever isn't.
+  # belay-debt: substring match, not import resolution — a module whose name appears inside
+  # an unrelated string gets a false edge, and an aliased import gets none. Performance is
+  # no longer the ceiling: the scan is still O(modules²) but spawns nothing, and measures
+  # 7.4s at 150 modules where it used to extrapolate to minutes. Upgrade path is the
+  # same resolver boundary-check.sh names, and it belongs in scripts/check.sh, not here.
   mimports="$(imports_of "$m")"
   deps=""
   while IFS= read -r other; do
     [ -n "$other" ] || continue
     [ "$other" = "$m" ] && continue
     [ "$other" = "(root)" ] && continue
-    obase="$(basename "$other")"
-    if printf '%s\n' "$mimports" | grep -qE "$other|[/\"'[:space:].]$obase[/\"']"; then
+    obase="${other##*/}"   # not basename: that is a process, and this loop runs modules² times
+    # Substring test in the shell, not a pipe to grep. This loop runs modules² times, so
+    # what cost anything was the process spawns, never the comparison: with the pipe and
+    # the basename call, 60 modules took 23.3s and 150 extrapolated to ~145s; in-shell they
+    # measure 3.2s and 7.4s. Same two branches, the module key or its delimited basename,
+    # except both are now literal instead of interpolated into an ERE.
+    if [[ $mimports == *"$other"* ]] || [[ $mimports == *[/\"\'[:space:].]"$obase"[/\"\']* ]]; then
       deps="$deps$other
 "
       EDGES="$EDGES$m -> $other

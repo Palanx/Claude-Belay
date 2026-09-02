@@ -431,6 +431,15 @@ check "index: a module importing nothing declares none" \
   bash -c 'sed -n "/^## Depends on/,\$p" "$1/docs/index/src-lonely.md" | grep -q "_none detected_"' _ "$L"
 check "index: the overview lists the edge" \
   grep -q 'src/api -> src/db' "$L/docs/index/_overview.md"
+# The old form interpolated the module key into an ERE, so a dot in a directory name was a
+# wildcard. The shell test matches literally; nothing else would notice that changing back.
+mkdir -p "$L/src/foo.bar" "$L/src/fooXbar"
+printf 'export const a = 1\n' >"$L/src/foo.bar/a.js"
+printf 'import z from "../fooXbar/b"\nexport const b = 1\n' >"$L/src/fooXbar/b.js"
+gitq "$L" add -A && gitq "$L" commit -qm dots
+(cd "$L" && CLAUDE_PROJECT_DIR="$L" "$PKG/scripts/build-index.sh") >/dev/null 2>&1
+check "index: a dot in a module name is literal, not a wildcard" \
+  bash -c '! grep -q "src/fooXbar -> src/foo.bar" "$1/docs/index/_overview.md"' _ "$L"
 
 # A source-free repo exited 0 without writing _overview.md, so --check said
 # STALE forever while the rebuild it prescribes wrote nothing — an unbreakable
