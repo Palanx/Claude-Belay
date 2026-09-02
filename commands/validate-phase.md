@@ -47,14 +47,22 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
 3. **Boundary sweep.** Run `scripts/check.sh --files <every source file in the phase's
    file set>` (the file set is defined above). This is the same gate the edit path runs,
    re-run as a batch in case any edit bypassed it.
-   A rules file with no active `deny` line cannot flag anything, so a clean sweep proves
-   nothing. Check `grep -qE '^deny[[:space:]]' .claude/workflow/boundaries.rules` first; if it
-   finds none, report `not swept: no active deny rules` rather than `clean`. The gate is
-   silent about this by design (see its header) — the report must not be (P7). That is a
-   stated gap, not a failure: it never sends the phase back to `/implement-phase`, because
-   no code change can add a `deny` rule. Leaving the rules inert until the humans decide
-   the layering is a supported state (`/adopt-project`, "codebase too inconsistent to infer
-   layering"), and a phase must be able to close in it.
+   A sweep comes back clean for three different reasons and only one of them is "no
+   violations", so check the other two against `.claude/workflow/boundaries.rules` before
+   reporting `clean` (P7):
+   - **No active `deny` line** — `grep -qE '^deny[[:space:]]'` finds nothing. The rules
+     cannot flag anything, whatever the files are. Report `not swept: no active deny rules`.
+   - **No file in the set under a declared layer** — `awk '$1=="layer" {print $3}'` gives the
+     prefixes; none of them prefixes any file in the phase's file set. The rules are live and
+     this phase touched nothing they cover, which is the normal state of a phase that only
+     adds tests, scripts or docs. Report `not swept: no file in the set is under a declared
+     layer`.
+   The gate is silent about both by design (see its header) — the report must not be. Either
+   is a stated gap, not a failure: neither sends the phase back to `/implement-phase`, because
+   no code change can add a `deny` rule or move a phase's files under a layer. Rules left
+   inert until the humans decide the layering is a supported state (`/adopt-project`,
+   "codebase too inconsistent to infer layering"), a test-only phase is ordinary, and a phase
+   must be able to close in both.
    **Corporate mode** (`.claude/workflow/corporate` exists): also verify no belay state
    path appears in `git status --porcelain` — no line matching
    `^\?\? (\.belay/|CLAUDE\.local\.md|docs/(product|adr|phases|index|security|templates)/|docs/(constraints|adoption-report)\.md|scripts/build-index\.sh)`
@@ -103,7 +111,7 @@ Append to `docs/phases/$1/notes.md`:
 ## Validation — <date>
 - criteria: <n> passed / <n> failed
 - project gates: test <pass|fail|gap>, lint <...>, typecheck <...>
-- boundary sweep: <clean | not swept: no active deny rules | violations listed above>
+- boundary sweep: <clean | not swept: no active deny rules | not swept: no file in the set is under a declared layer | violations listed above>
 - independent review: <clean | contradicts: <what> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
 - upstream: <none | <package file(s)> — /belay-feedback recommended>

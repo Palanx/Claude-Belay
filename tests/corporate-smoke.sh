@@ -903,6 +903,11 @@ check "/validate-phase's closure test exempts the files the workflow writes" \
 # gate is silent about that by design; the validation report is what must not be (P7).
 check "/validate-phase distinguishes an unswept boundary sweep from a clean one" \
   grep -q 'not swept: no active deny rules' "$PKG/commands/validate-phase.md"
+# The other vacuity, reported by hand five rounds running in a consuming project: the rules
+# are live but the phase touched no file any layer prefix covers, which is every test-only or
+# script-only phase. `clean` there is a claim about work that never happened.
+check "/validate-phase catches a sweep whose file set no layer covers" \
+  grep -q 'not swept: no file in the set is under a declared layer' "$PKG/commands/validate-phase.md"
 # ...and says it is not a failure. The routing paragraph sends "steps 1-4" back to
 # /implement-phase, and /adopt-project deliberately leaves boundaries.rules inert where the
 # layering is still a human decision — so an unswept sweep read as a step-3 failure would
