@@ -13,9 +13,16 @@
 #
 # belay-debt: grep heuristic, not AST resolution. It matches import/require/use/
 # include lines that mention the denied layer's directory name or full prefix.
-# Catches the realistic violations (direct path imports); aliased or dynamic
-# imports can slip through — mirror the rule in CI with a real resolver if that
-# matters to you. Upgrade path: dependency-cruiser (js), import-linter (py).
+# Catches the realistic violations (direct path imports). Three kinds slip past,
+# and they look nothing alike in a diff: an aliased import (`@/infra/x`), a
+# dynamic one, and a barrel re-export — importing from `src/shared/index.ts`,
+# which re-exports infra, names infra on no line of the importing file.
+#
+# Do not "upgrade" this script in place. dependency-cruiser (js) and
+# import-linter (py) resolve a whole module graph; this gate is handed ONE file
+# on every edit, so a resolver belongs in scripts/check.sh as a project-wide
+# category alongside tsc and clippy — a toolchain schema change in three places
+# (see CLAUDE.md). Until that is worth paying for, mirror the rule in CI.
 #
 # Exit codes:
 #   2  forbidden dependency found; stderr carries the rule and the offending lines.
