@@ -899,6 +899,18 @@ check "/validate-phase's closure test exempts the files the workflow writes" \
              printf "%s" "$sec" | grep -qF "$p" || exit 1
            done' \
   _ "$PKG/commands/validate-phase.md"
+# ...and both CLAUDE templates state the same four paths, because step 5's reviewer gets
+# CLAUDE.md, the spec and the diff — never the command. An exemption living only in
+# validate-phase.md reaches the closure test and not the reviewer, which then returns those
+# paths as `undecidable` on every phase forever. Verified in a consuming project the first
+# time the exemption was made structural, so the duplication is load-bearing, not drift.
+check "both CLAUDE templates tell the starved reviewer which files the workflow writes" \
+  bash -c 'for t in CLAUDE.bootstrap.md CLAUDE.adopted.md; do
+             line="$(grep -F "escaping its scope" "$1/templates/$t")" || exit 1
+             for p in "phases/<id>/spec.md" "phases/<id>/notes.md" "phases/PHASES.md" "docs/index/"; do
+               printf "%s" "$line" | grep -qF -- "$p" || exit 1
+             done
+           done' _ "$PKG"
 # An inert boundaries.rules makes every file pass, so a sweep over it proves nothing. The
 # gate is silent about that by design; the validation report is what must not be (P7).
 check "/validate-phase distinguishes an unswept boundary sweep from a clean one" \
