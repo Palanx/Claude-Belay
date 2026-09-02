@@ -946,6 +946,12 @@ check "the principle range CLAUDE.md cites matches the README table" \
            grep -qE "P1.?P$hi" "$1/CLAUDE.md"' _ "$PKG"
 # The package ships templates/adr.md and tells its consumers to use it. An ADR here that
 # drifts from that shape is the same two-files-disagree bug, one level up.
+# Pass 1 of sanitizing, as a guard rather than a habit: an absolute home path in a published
+# document leaks a username and usually the consuming project beside it. Generic on purpose —
+# it fires on a document nobody thought to audit, which is the only kind that leaks.
+check "no published document carries an absolute home path" \
+  bash -c '! grep -rlE "/(Users|home)/[A-Za-z0-9._-]+/" "$1/docs" "$1/templates" >/dev/null 2>&1' \
+  _ "$PKG"
 check "every package ADR follows the shipped template's shape" \
   bash -c 'for f in "$1"/docs/adr/*.md; do
              for h in "- Status:" "## Context" "## Decision" "## Consequences"; do

@@ -95,13 +95,30 @@ exposing `test:` / `lint:` is already covered by the fallback, and one that only
 command *here* needs `toolchain.manual.json`, not a package change. Upstream a detection
 block when the same stack shows up in a second project.
 
-## Examples are fictional and stay fictional
+## Everything this repo publishes gets sanitized first
 
-`docs/worked-example.md` and every `templates/*.example.md` are one coherent
-invented project (`taskboard`: Node/Express + SQLite). They cross-reference each
-other, so a change to one propagates. Never seed an example from a real
-codebase — not a type name, not a method signature, not a measurement. Material
-generalized from a private repo gets audited before it lands, examples included.
+This repo is public. **Every document it generates is sanitized before it lands** —
+ADRs, examples, templates, README prose, and the commit message that carries them.
+Not only the ones that look like examples: the rule was written when examples were
+the only generated documents here, and the first ADRs were drafted without anyone
+applying it.
+
+Sanitizing is two passes, and the second is the one that gets skipped:
+
+1. **Identifiers** — consuming-project names, absolute paths under a home directory,
+   usernames, e-mail addresses.
+2. **Fingerprints** — the things that identify a codebase without naming it: type and
+   symbol names, rule ids, test filenames, phase ids, a stack nobody else runs, a
+   measurement taken against it. A document can clear pass 1 and fail this one.
+
+Legitimately allowed: this package's own paths and its own GitHub org, and a fact
+*about belay* that a consuming project happened to reveal (a failure rate, a defect
+class) as long as it says nothing about that project.
+
+`docs/worked-example.md` and every `templates/*.example.md` are one coherent invented
+project (`taskboard`: Node/Express + SQLite). They cross-reference each other, so a
+change to one propagates. Never seed an example from a real codebase — not a type name,
+not a method signature, not a measurement.
 
 ## Conventions
 
