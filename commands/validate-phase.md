@@ -131,7 +131,13 @@ report exactly which gate failed with its output — that error text is the inpu
 next iteration. Where that iteration happens depends on what failed: steps 1–4 and a
 `contradicts` verdict go back to `/implement-phase $1` (the code is wrong); a closure-test
 failure or an `undecidable` verdict is fixed in `spec.md` plus a notes.md Deviations entry
-and re-validated from here (the record is wrong). Say which of the two you are handing
+and re-validated from here (the record is wrong). **An amendment owes reconciliation**: name
+the other statements in the spec that assert the same fact, and fix or delete them in the same
+edit, listing in that Deviations entry which you checked. Nothing else will — the reviewer
+sees the spec and the diff, and a statement the amendment just invalidated is in the spec but
+not in the diff, so it surfaces only when some later round's diff happens to touch it. Deleting
+a statement the amendment leaves unfounded is a legitimate outcome and often the right one;
+rewording it is how the next round's finding gets written. Say which of the two you are handing
 back, or the next session guesses.
 
 **Both routes fix this project. Neither asks what caused the finding.** If the file that

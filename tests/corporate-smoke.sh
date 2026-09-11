@@ -952,6 +952,13 @@ check "/validate-phase performs the status flip its escape prescribes" \
 # reviewer cannot compute a set the spec never states, so `undecidable` is its only verdict,
 # and the finding regenerates every round as each diff closes only the instances it touched.
 # The closure test already measures whether a cold reader can decide; this is that question.
+# Amending a spec statement invalidates the others asserting the same fact, and nothing reads
+# them: the reviewer sees the spec and the diff, and the stale statement is in the spec but not
+# in the diff. Both routes that amend a spec have to carry the obligation, or it lands on
+# whichever one the session happened to take.
+check "both spec-amending routes owe reconciliation" \
+  bash -c 'grep -qF "amendment owes reconciliation" "$1" && grep -qF "assert the same fact" "$2"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/commands/implement-phase.md"
 check "the closure test requires a quantified claim to name its set" \
   bash -c 'sec="$(sed -n "/Closure test/,/^## Mandatory/p" "$1")"
            printf "%s" "$sec" | grep -qF "quantified claim owes its set"' \

@@ -42,7 +42,7 @@ substituting them, so read the id and the flag out of the prompt.
    it *now*, before the next step.
 
 4. **On deviation** — the spec says X, reality demands Y:
-   - Deviation stays inside this phase's scope (different function shape, extra helper, a file the spec missed) → do Y, and record it immediately in `notes.md` under `## Deviations`: what the spec said, what was done, why.
+   - Deviation stays inside this phase's scope (different function shape, extra helper, a file the spec missed) → do Y, and record it immediately in `notes.md` under `## Deviations`: what the spec said, what was done, why. If the deviation amends a statement in the spec, reconcile the other statements that assert the same fact in the same edit and say which you checked — see `/validate-phase`'s routing for why nothing else will.
    - Deviation changes this phase's goal or another phase's premise → STOP. Record the finding in `notes.md`, set status `blocked` with a one-line reason in PHASES.md, and report to the operator. That decision is a re-plan, not an implementation detail: it goes to `/plan-feature` ("Re-cutting a phase whose premise died"), which supersedes the affected rows and appends replacements. If the operator instead resolves the reason without a re-cut, this command resumes the phase (see preconditions).
 
 5. **Generalise before fixing.** For every finding handed back by `/validate-phase`, decide
