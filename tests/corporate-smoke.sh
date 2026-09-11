@@ -874,6 +874,19 @@ check "/implement-phase documents --implemented in its Arguments section" \
   _ "$PKG/commands/implement-phase.md"
 check "/implement-phase --implemented writes no source" \
   grep -q 'Do not touch source' "$PKG/commands/implement-phase.md"
+# A finding is fixed where it was reported unless something asks whether it is one instance
+# of a property. The step-5 reviewer cannot ask — it is starved to one spec and one diff by
+# design — so the burden is /implement-phase's, which holds the whole tree. Without it a
+# property violated in N places costs N rounds, and the 1-2 iteration assumption silently
+# stops holding. And the --implemented branch skips the implementing steps by number, so the
+# range has to cover the new one or human-implemented phases start running the gates twice.
+check "/implement-phase generalises a finding before fixing it" \
+  bash -c 'grep -qF "Generalise before fixing" "$1" && grep -qF "enumerate every place it must hold" "$1"' \
+  _ "$PKG/commands/implement-phase.md"
+check "/implement-phase --implemented skips every implementing step" \
+  bash -c 'last="$(grep -oE "^[0-9]+\. \*\*" "$1" | grep -oE "[0-9]+" | head -6 | tail -1)"
+           grep -qE "Steps 3.$last are skipped whole" "$1"' \
+  _ "$PKG/commands/implement-phase.md"
 check "/validate-phase diffs against a recorded base ref, not just the working tree" \
   grep -q 'base: <ref>' "$PKG/commands/validate-phase.md"
 # ...and diffs that ref against the working tree, not <ref>..HEAD. With a real base ref

@@ -45,7 +45,19 @@ substituting them, so read the id and the flag out of the prompt.
    - Deviation stays inside this phase's scope (different function shape, extra helper, a file the spec missed) → do Y, and record it immediately in `notes.md` under `## Deviations`: what the spec said, what was done, why.
    - Deviation changes this phase's goal or another phase's premise → STOP. Record the finding in `notes.md`, set status `blocked` with a one-line reason in PHASES.md, and report to the operator. That decision is a re-plan, not an implementation detail: it goes to `/plan-feature` ("Re-cutting a phase whose premise died"), which supersedes the affected rows and appends replacements. If the operator instead resolves the reason without a re-cut, this command resumes the phase (see preconditions).
 
-5. **Run all acceptance criteria** from the spec, in order, once the plan is complete.
+5. **Generalise before fixing.** For every finding handed back by `/validate-phase`, decide
+   first whether it is a bug or one instance of a property violated somewhere else. If it is
+   an instance: name the property, enumerate every place it must hold, check them all, and fix
+   them in this round. Record the enumeration in `notes.md` — what was checked, not only what
+   was wrong — so the next round can see the scope instead of rediscovering it.
+   This is the only step that can do it. Step 5's reviewer is starved to `CLAUDE.md`, one spec
+   and one diff on purpose, so it can only ever report the instance it was shown; you hold the
+   whole tree. Skipping it does not lose a round, it multiplies them: convergence in 1–2
+   iterations is this loop's stated assumption and it holds only while a finding is a bug — an
+   unenumerated property costs one round per instance, and the iteration-3+ escape fires long
+   after that bill is paid.
+
+6. **Run all acceptance criteria** from the spec, in order, once the plan is complete.
    Fix failures and re-run until clean or genuinely blocked.
 
 ## Human-implemented mode (`--implemented`)
@@ -63,7 +75,7 @@ to validate the work against — run `/expand-phase $1` first, then this.
 
 1. **Mark started** — step 1 above, unchanged.
 
-2. **Do not touch source.** Steps 3–5 are skipped whole: do not re-run the plan, do not
+2. **Do not touch source.** Steps 3–6 are skipped whole: do not re-run the plan, do not
    "fix" what the human wrote, do not run the acceptance criteria. Those belong to
    `/validate-phase`; running them here duplicates the gate and invites editing code until
    the gate is happy, which is the one thing this mode must not do.
