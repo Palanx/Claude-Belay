@@ -25,6 +25,15 @@ use `git diff <ref>` and `git diff --name-only <ref>` instead, same union — th
 the **working tree**, never `<ref>..HEAD`, which shows only what was committed and hides
 hand-written work still sitting uncommitted (`git add -N` first here too, for the same
 reason as above).
+**Subtract the files the package installed**, unless the spec's Plan names one: every path
+listed in `.claude/workflow/installed`. A `chore(belay):` commit lands package-owned files in
+the tree, and once one falls between the base ref and now, no ref exists that keeps the phase's
+history in and the package's out — so the diff carries files the phase never wrote, step 6 asks
+the spec to account for them, and its prescribed fix would have the spec claim this phase wrote
+`docs/templates/spec.md`. The manifest is exactly the set `install.sh` wrote (see
+`docs/adr/0001-ownership-is-decided-by-the-install-manifest.md`); if it is absent, say so on
+the `upstream:` line rather than treating everything as phase work.
+
 Never fall back to the Plan alone: the file the Plan never named is exactly what step 6
 exists to catch, so a diff that cannot show it turns three gates into no-ops that report
 `pass`.

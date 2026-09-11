@@ -15,6 +15,13 @@
 
 ## Goal
 
+<!-- A document this phase writes that describes another file's behaviour states
+     properties, never transcripts: "prints one ok: line per declared rule", not
+     "prints these two lines". A quoted count or string goes stale the next time
+     the code changes, and the drift is found a validation round later, not at
+     implementation time. If the spec does want a literal quoted, it owes an
+     executable acceptance criterion that greps for it. -->
+
 <!-- If this paragraph quantifies over a set — "every check", "each rule", "all
      N files" — name the members here or in a table below. A quantified claim
      with no enumeration is undecidable for /validate-phase's starved reviewer,

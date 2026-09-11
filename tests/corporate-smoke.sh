@@ -959,6 +959,23 @@ check "/validate-phase performs the status flip its escape prescribes" \
 check "both spec-amending routes owe reconciliation" \
   bash -c 'grep -qF "amendment owes reconciliation" "$1" && grep -qF "assert the same fact" "$2"' \
   _ "$PKG/commands/validate-phase.md" "$PKG/commands/implement-phase.md"
+# A phase's diff carries the files install.sh wrote whenever a chore(belay): commit falls
+# after the base ref, and no ref separates them once they interleave. The manifest is the
+# set to subtract (ADR-0001), which is only true while install.sh records everything it
+# writes — belay-version was written and never recorded.
+check "/validate-phase subtracts the installed manifest from the file set" \
+  bash -c 'grep -qF "Subtract the files the package installed" "$1" &&
+           grep -qF ".claude/workflow/installed" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
+check "install.sh records every file it writes, belay-version included" \
+  grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
+# A document describing another file's behaviour drifts every time that file changes, and the
+# drift is found a review round later. Measured in a consuming project: switching that
+# document from transcripts to properties took its anti-transcription grep from 3 hits to 0
+# and the file stopped recurring — prose discipline was enough, no generator needed.
+check "the spec template forbids transcribing output into a derived document" \
+  bash -c 'grep -qF "states\n     properties, never transcripts" "$1" || grep -qF "never transcripts" "$1"' \
+  _ "$PKG/templates/spec.md"
 check "the closure test requires a quantified claim to name its set" \
   bash -c 'sec="$(sed -n "/Closure test/,/^## Mandatory/p" "$1")"
            printf "%s" "$sec" | grep -qF "quantified claim owes its set"' \

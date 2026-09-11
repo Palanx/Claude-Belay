@@ -157,6 +157,9 @@ copy_into "$DOCS/templates" "$PKG"/templates/*
 # package commit whose behavior they observed.
 ver="$(git -C "$PKG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 printf 'belay %s (installed %s)\n' "$ver" "$(date +%F)" >"$TARGET/.claude/workflow/belay-version"
+# Recorded like any copied file: /validate-phase subtracts the manifest from a phase's file
+# set, so a package-owned path missing from it reads as phase work and costs a review finding.
+record .claude/workflow/belay-version
 # The corporate marker is stamped at the very END of this script, once every
 # check has passed: it flips the target into a mode whose plain re-install is
 # refused, so a failed install must not leave it behind.
