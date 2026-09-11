@@ -948,6 +948,17 @@ check "/validate-phase performs the status flip its escape prescribes" \
 # ...and counts rounds against the current spec, not for the phase's lifetime. The escape's
 # own verdict is the reset point: without it, a phase that escapes once is permanently in
 # escape territory and every later round demands re-expanding a spec written one round ago.
+# A Goal that quantifies without naming its set is undecidable, not vague: the starved
+# reviewer cannot compute a set the spec never states, so `undecidable` is its only verdict,
+# and the finding regenerates every round as each diff closes only the instances it touched.
+# The closure test already measures whether a cold reader can decide; this is that question.
+check "the closure test requires a quantified claim to name its set" \
+  bash -c 'sec="$(sed -n "/Closure test/,/^## Mandatory/p" "$1")"
+           printf "%s" "$sec" | grep -qF "quantified claim owes its set"' \
+  _ "$PKG/commands/validate-phase.md"
+check "the spec template warns that a quantified Goal owes an enumeration" \
+  bash -c 'sed -n "/^## Goal/,/^## Context/p" "$1" | grep -qF "quantifies over a set"' \
+  _ "$PKG/templates/spec.md"
 check "/validate-phase counts iterations against the current spec" \
   bash -c 'grep -qF "against the current spec" "$1" && grep -qF "escaped to /expand-phase\` verdict" "$1"' \
   _ "$PKG/commands/validate-phase.md"

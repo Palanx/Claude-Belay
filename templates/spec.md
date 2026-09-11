@@ -15,6 +15,12 @@
 
 ## Goal
 
+<!-- If this paragraph quantifies over a set — "every check", "each rule", "all
+     N files" — name the members here or in a table below. A quantified claim
+     with no enumeration is undecidable for /validate-phase's starved reviewer,
+     which sees only this file and the diff, and it comes back every round until
+     the set is written down. -->
+
 {{The index one-liner expanded to a paragraph of observable behavior. What
 exists/works after this phase that didn't before.}}
 
