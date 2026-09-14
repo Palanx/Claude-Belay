@@ -89,7 +89,15 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    (`CLAUDE.local.md` in corporate mode), `docs/phases/$1/spec.md`, and the phase's diff
    restricted to step 3's file set (defined above — that definition is what makes this work
    on code the operator already committed). Nothing else —
-   not `notes.md`, not the dependency notes, not your summary. Starve it deliberately: the
+   not `notes.md`, not the dependency notes, not your summary. **Say in the prompt which paths
+   you withheld** — `notes.md` always, plus whatever the manifest subtraction removed — and
+   that their absence is not a finding. The file set contains `notes.md` by construction (both
+   this command and `/implement-phase` write it), so withholding it silently leaves the
+   reviewer holding a spec whose Plan says the phase writes that file and a diff that does
+   not: it can only report `contradicts`, a verdict no code change can clear, on every spec
+   the shipped template produces. Naming what is withheld costs the starvation nothing — the
+   reviewer still cannot read those files, it just stops reading their absence as evidence.
+   Starve it deliberately: the
    instinct to be helpful destroys the property under test, because a reviewer who knows what
    you meant cannot see that the spec never said it. Ask for two verdicts only:
    - **contradicts** — a hunk conflicts with the spec's Goal, Plan, Acceptance criteria or

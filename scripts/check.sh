@@ -65,10 +65,15 @@ run_categories() {
 # payload is constructed anywhere in this script. That is the whole point of the
 # gate/adapter split: callers adapt to the gate, never the reverse.
 gate_files() {
-  local f abs out
+  local f abs out gated=0 skipped=""
   for f in "$@"; do
     case "$f" in /*) abs="$f" ;; *) abs="$ROOT/$f" ;; esac
-    [ -f "$abs" ] || continue
+    # Skipping a path that is not a file is fine; skipping it in silence is not. Skip every
+    # argument and the run still prints "all gates passed", so a clean sweep and a sweep of
+    # nothing are indistinguishable (P7). One caller reached this with an unquoted "$FILES"
+    # under a shell that does not word-split, which arrives as a single nonexistent path.
+    if [ ! -f "$abs" ]; then skipped="$skipped $f"; continue; fi
+    gated=$((gated + 1))
     for g in post-edit-gate boundary-check; do
       # Pass the gate's own stderr through: it already distinguishes a real
       # failure (POST-EDIT GATE FAILED) from a formatter that merely rewrote the
@@ -79,6 +84,13 @@ gate_files() {
       fi
     done
   done
+  [ -n "$skipped" ] && echo "check: not a file, skipped:$skipped" >&2
+  # Reported through fail(), not a return code: the script's exit status comes from $failed,
+  # so returning non-zero here would still print "all gates passed" — which is the defect.
+  if [ $# -gt 0 ] && [ "$gated" -eq 0 ]; then
+    echo "check: gated 0 of $# argument(s) — nothing was checked, so this is not a pass" >&2
+    fail "nothing-checked"
+  fi
 }
 
 case "$MODE" in

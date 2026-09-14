@@ -647,6 +647,16 @@ runcheck --files src/bad.js && bad "--files blocks a boundary violation" \
 check "--files names the violated rule" grep -q 'BOUNDARY VIOLATION' "$TMP/check.out"
 runcheck --files src/good.js && ok "--files passes a clean file" || bad "--files passes a clean file"
 
+# A sweep of nothing and a clean sweep printed the same thing: gate_files skipped a
+# nonexistent path in silence and the run still said "all gates passed". A caller reached it
+# with an unquoted "$FILES" under a shell that does not word-split, and nearly recorded the
+# vacuous pass as a clean boundary sweep (P7). Reported via fail(), because the exit status
+# comes from $failed — a return code here would have been swallowed.
+runcheck --files "src/good.js src/bad.js" && bad "--files fails when every path is skipped" \
+                                          || ok "--files fails when every path is skipped"
+check "--files names the paths it skipped" grep -q 'not a file, skipped' "$TMP/check.out"
+check "--files says nothing was checked" grep -q 'gated 0 of' "$TMP/check.out"
+
 # The gate's contract was underivable from its header: a wrapper built on it treated any
 # non-zero as a layering breach, so a broken hook would have been reported to the operator
 # as a violation. Every caller here (edit-gate-adapter, check.sh) folds non-zero into
@@ -963,6 +973,13 @@ check "both spec-amending routes owe reconciliation" \
 # after the base ref, and no ref separates them once they interleave. The manifest is the
 # set to subtract (ADR-0001), which is only true while install.sh records everything it
 # writes — belay-version was written and never recorded.
+# The file set always contains notes.md — both commands write it — while step 5 forbids it as
+# an input. Withheld silently, the reviewer sees a spec whose Plan says the phase writes that
+# file and a diff that does not, and can only call it `contradicts`: a verdict no code change
+# clears, on every spec the shipped template produces.
+check "/validate-phase tells the reviewer which paths were withheld" \
+  bash -c 'grep -qF "Say in the prompt which paths" "$1" && grep -qF "absence is not a finding" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
 check "/validate-phase subtracts the installed manifest from the file set" \
   bash -c 'grep -qF "Subtract the files the package installed" "$1" &&
            grep -qF ".claude/workflow/installed" "$1"' \
