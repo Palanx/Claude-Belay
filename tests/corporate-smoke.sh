@@ -890,6 +890,13 @@ check "/implement-phase --implemented writes no source" \
 # property violated in N places costs N rounds, and the 1-2 iteration assumption silently
 # stops holding. And the --implemented branch skips the implementing steps by number, so the
 # range has to cover the new one or human-implemented phases start running the gates twice.
+# Recording is a gate — a blank notes.md section fails the closure test — and fixing is not,
+# so a defect the session finds by probing gets written down and handed to validation intact.
+# The scope boundary has to be the Goal: a test that cannot fail when its rule is violated is
+# the Goal unmet, whether or not a Plan step names that test.
+check "/implement-phase judges a self-found defect by the Goal, not the Plan" \
+  bash -c 'grep -qF "A defect you found yourself" "$1" && grep -qF "is not creep" "$1"' \
+  _ "$PKG/commands/implement-phase.md"
 check "/implement-phase generalises a finding before fixing it" \
   bash -c 'grep -qF "Generalise before fixing" "$1" && grep -qF "enumerate every place it must hold" "$1"' \
   _ "$PKG/commands/implement-phase.md"
@@ -979,6 +986,18 @@ check "both spec-amending routes owe reconciliation" \
 # clears, on every spec the shipped template produces.
 check "/validate-phase tells the reviewer which paths were withheld" \
   bash -c 'grep -qF "Say in the prompt which paths" "$1" && grep -qF "absence is not a finding" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
+# `- base: working tree` is true while the work is uncommitted and expires the moment it is
+# committed, which is ordinary. The default file set is then empty on a clean tree, and the
+# sweep, the review and the closure test all report pass having examined nothing.
+check "/validate-phase refuses an empty file set" \
+  bash -c 'grep -qF "Check the file set before using it" "$1" && grep -qF "did not happen" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
+# A fix written to close a finding tends to add a claim founded only on itself, which the next
+# round returns as its own finding. Measured as a phase's dominant failure mode over four
+# rounds, alongside the reconciliation debt an amendment leaves behind.
+check "/validate-phase asks what founds a sentence the fix itself added" \
+  bash -c 'grep -qF "what founds the" "$1" && grep -qF "the fix I just wrote" "$1"' \
   _ "$PKG/commands/validate-phase.md"
 check "/validate-phase subtracts the installed manifest from the file set" \
   bash -c 'grep -qF "Subtract the files the package installed" "$1" &&

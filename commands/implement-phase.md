@@ -43,6 +43,15 @@ substituting them, so read the id and the flag out of the prompt.
 
 4. **On deviation** — the spec says X, reality demands Y:
    - Deviation stays inside this phase's scope (different function shape, extra helper, a file the spec missed) → do Y, and record it immediately in `notes.md` under `## Deviations`: what the spec said, what was done, why. If the deviation amends a statement in the spec, reconcile the other statements that assert the same fact in the same edit and say which you checked — see `/validate-phase`'s routing for why nothing else will.
+   - **A defect you found yourself** — probing, mutating, reading around the Plan — is judged
+     by the Goal, not by the Plan: if it leaves the Goal false, it is in scope and you fix it
+     this round even where no Plan step names the file. The Plan enumerates the work; the Goal
+     defines what done means. Scope creep is work the Goal does not ask for; a defect that
+     makes the Goal false is not creep, however far from the Plan the file sits. If the Goal
+     survives it, it goes to `For later phases` with an owner. Say which of the two you chose,
+     so a deferral reads as decided rather than defaulted. Recording is not the default answer:
+     a blank `notes.md` section fails the closure test and an unfixed defect fails nothing,
+     which is a gradient to argue against, not to follow.
    - Deviation changes this phase's goal or another phase's premise → STOP. Record the finding in `notes.md`, set status `blocked` with a one-line reason in PHASES.md, and report to the operator. That decision is a re-plan, not an implementation detail: it goes to `/plan-feature` ("Re-cutting a phase whose premise died"), which supersedes the affected rows and appends replacements. If the operator instead resolves the reason without a re-cut, this command resumes the phase (see preconditions).
 
 5. **Generalise before fixing.** For every finding handed back by `/validate-phase`, decide

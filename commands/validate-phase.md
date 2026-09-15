@@ -34,6 +34,14 @@ the spec to account for them, and its prescribed fix would have the spec claim t
 `docs/adr/0001-ownership-is-decided-by-the-install-manifest.md`); if it is absent, say so on
 the `upstream:` line rather than treating everything as phase work.
 
+**Check the file set before using it.** If it is empty, or holds nothing beyond the files the
+Plan names, stop and say so — do not run the gates over it. A phase that changed nothing is
+not what that looks like; a measurement that did not happen is. The usual cause is a
+`- base: working tree` line that was true when `/implement-phase` wrote it and expired when
+the work was committed, which is ordinary and expected: a phase closes with its work
+committed. Name that as the likely cause and ask for the real ref (P7 — a check that examined
+nothing says so).
+
 Never fall back to the Plan alone: the file the Plan never named is exactly what step 6
 exists to catch, so a diff that cannot show it turns three gates into no-ops that report
 `pass`.
@@ -154,7 +162,11 @@ edit, listing in that Deviations entry which you checked. Nothing else will — 
 sees the spec and the diff, and a statement the amendment just invalidated is in the spec but
 not in the diff, so it surfaces only when some later round's diff happens to touch it. Deleting
 a statement the amendment leaves unfounded is a legitimate outcome and often the right one;
-rewording it is how the next round's finding gets written. Say which of the two you are handing
+rewording it is how the next round's finding gets written. **And check what founds the
+sentences the amendment itself adds**: after writing a fix, ask what each new claim rests on,
+and if the answer is "the fix I just wrote", delete it. A fix written to close a finding tends
+to introduce a claim with nothing behind it, which the next round returns as a finding of its
+own — measured repeatedly, in one phase as its dominant failure mode across four rounds. Say which of the two you are handing
 back, or the next session guesses.
 
 **Both routes fix this project. Neither asks what caused the finding.** If the file that
