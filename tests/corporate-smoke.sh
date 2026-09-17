@@ -11,6 +11,26 @@
 # Every assert here should be able to fail: when adding one, check it fails
 # against the commit before the fix. Three consistency asserts guard the
 # "two files say different things" class that no behavioural test can see.
+#
+# belay-debt: this suite tests scripts and command TEXT, never command BEHAVIOUR. The
+# commands are prompts an agent executes, so nothing here can assert that a session
+# reading one routes, scopes or measures correctly — which is where almost every defect
+# reported from a consuming project has lived. The asserts catch a command that says the
+# wrong thing; they cannot catch one that says the right thing and is followed badly, nor
+# one whose right thing is incomplete in a way only a real spec exposes. The ceiling is
+# therefore: the test bench for the commands is a consuming project, and defects surface
+# in production by construction. Upgrade path: `claude plugin eval`, which exists for
+# running agents against prompt suites — to be used deliberately, isolated and by hand,
+# not wired into this file. It is not a drop-in: an agent run is not reproducible, so a
+# pass/fail gate built on it violates the rule three lines above (an assert that cannot
+# fail is worse than none, and one that fails a third of the time teaches you to ignore
+# red). What it is good for is a seeded probe before a release — a fixture repo in a
+# known-bad state and a human reading whether the command's own text was enough. Until
+# then the cheaper half is deterministic and belongs here: assert that no gate reports a
+# pass having examined nothing, and that every state transition or write a command's
+# prose prescribes appears in its declared **Writes:** line. Both classes have already
+# shipped defects (check.sh --files passing on zero gated files; a `pending` flip
+# prescribed by prose that no Writes line allowed).
 set -u
 PKG="$(cd "$(dirname "$0")/.." && pwd)"
 # Isolate from the user's git config — a global gitignore covering e.g.
