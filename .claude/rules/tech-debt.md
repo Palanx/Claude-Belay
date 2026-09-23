@@ -14,10 +14,11 @@ paths:
 ## Phase-workflow fixes shipped without a live run (reviewed 2026-09-23)
 
 Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/plan-feature.md`,
-`templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`
+`templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`,
+`tests/corporate-smoke.sh`
 
-Seven commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
-`da3af97`, `fd81d40`, `471dda6`, `6c68885`. They close every open entry in
+Eight commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+`da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -47,5 +48,12 @@ it works.
 - `not-ours` (`1502fdf`): the declared paths leave the reviewer's file set and the record
   names them. Needs the operator to have edited a project-owned file (`CLAUDE.md`, an ADR)
   while the phase is open, for that project's own reasons.
+- Spec-bound verdict (`9a61992`): a round whose every failure routes to the spec writes
+  `verdict: returned to spec` and hands back a spec amendment, not `/implement-phase`.
+  Needs a phase that fails only on the closure test, an `undecidable`, or a spec-side
+  `contradicts`.
+- Spec-bound convergence (`9a61992`): at iteration 3+, a spec-bound round whose findings
+  fall every round writes `returned to spec (escape not taken: converging …)`. Needs a
+  phase that reaches a third round on spec-side failures.
 
 Delete each case once it has been observed, and the entry with the last one.
