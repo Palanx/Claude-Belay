@@ -20,30 +20,27 @@ Seven commits change how the phase commands route findings: `fe6d9da`, `f449dd2`
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
-No agent session has run these commands since the change, so nobody knows yet whether a
-session actually behaves the way the prose says.
+Only a live run shows whether a session actually behaves the way the prose says.
 
-Nothing breaks today because the one consuming install (see `scripts/installs-stale.sh`) is
-on `6c68885` and has not started a phase since updating. The risk starts with its next
-`/plan-feature`, `/expand-phase`, `/implement-phase` or `/validate-phase` run.
+The consumer's fix to its `done` scaffold phase ran end to end on `6c68885` and passed
+validation in one round. It confirmed these behaviours: `/plan-feature fix <done-id>: …`
+scheduled one `depends: -` row and left the `done` row untouched (`da3af97`, `6c68885`),
+the spec stated conclusions (`471dda6`), and the validation record carried `- findings:`
+and `- spec size:` (`fd81d40`, `471dda6`). Nothing breaks today because every remaining
+behaviour sits on a branch that a run passing in one round, with nothing to contradict, never
+reaches. The risk is the first phase that reaches one of them.
 
-Fix: run the consumer's scheduled fix to its `done` scaffold phase end to end, and check
-the behaviours below that its work actually exercises. That run is free because the work is
-already owed, and it only covers these rows: the fix edits rule text, so it gives a reviewer
-nothing to contradict. Anything that diverges goes back through `/belay-feedback`.
-
-| Step in the consumer | Expected | Commit |
-|---|---|---|
-| `/plan-feature fix <done-id>: …` | Skips straight to "Scheduling a fix to a phase already done": no interview, no blurb, one `fix <done-id>: …` row with `depends: -` and `pending`, and the `done` row untouched | `da3af97`, `6c68885` |
-| `/expand-phase <id>` | The spec states conclusions without their "because"; reasoning goes to `notes.md` | `471dda6` |
-| `/implement-phase <id>` | The final step updates the Plan's per-step status text (if the spec uses it) and names what it flipped | `fe6d9da` |
-| `/validate-phase <id>` | The record carries `- findings: <n>` and `- spec size: …` | `fd81d40`, `471dda6` |
-| Iteration 3+, if reached | Findings that fall every round do not escape: the verdict reads `escape not taken: converging …` | `fd81d40` |
-
-Observe these only when a phase with real code produces them. Never stage them in a
-consumer: an edit made to test belay lands in that project's history for no reason of its
-own, and a record line such as `- not-ours: …` proves the field exists, not that the
-behaviour behind it works.
+Fix: observe each case below in a phase that produces it for its own reasons, and send
+anything that diverges back through `/belay-feedback`. Never stage one in a consumer: an
+edit made to test belay lands in that project's history for no reason of its own, and a
+record line such as `- not-ours: …` proves the field exists, not that the behaviour behind
+it works.
+- Per-step status text (`fe6d9da`): `/implement-phase`'s final step updates the Plan's
+  per-step status text and names what it flipped. Needs a spec that uses status markers.
+  The scaffold fix's spec used none, so it took the "if the spec uses it" branch.
+- Convergence (`fd81d40`): at iteration 3+, findings that fall every round do not escape,
+  and the verdict reads `escape not taken: converging …`. Needs a phase that reaches a third
+  round.
 - `contradicts` routing (`f449dd2`, `471dda6`): a finding tagged `(code-side|spec-side)`
   with evidence, and a spec-side finding closed by deleting before adding. Needs a reviewer
   conflict, and the spec-side branch needs one where the spec is the stale side.
@@ -51,4 +48,4 @@ behaviour behind it works.
   names them. Needs the operator to have edited a project-owned file (`CLAUDE.md`, an ADR)
   while the phase is open, for that project's own reasons.
 
-Delete this entry once the table has been observed and each case above has shown up once.
+Delete each case once it has been observed, and the entry with the last one.
