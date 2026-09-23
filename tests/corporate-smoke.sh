@@ -1122,6 +1122,19 @@ check "every command that reads the index checks its freshness" \
 check "/validate-phase routes a package-caused finding to /belay-feedback" \
   bash -c 'grep -q "^- upstream:" "$1" && grep -q "belay-feedback" "$1"' \
   _ "$PKG/commands/validate-phase.md"
+# The record is what a cold session dispatches from. A round that failed only on spec-bound
+# routes once wrote `returned to implementation`, the only failure verdict there was, and
+# named the wrong destination. Every destination the Handoff routes to owns a verdict value.
+check "/validate-phase names a verdict for every Handoff destination" \
+  bash -c 'v="$(grep "^- verdict:" "$1" | grep -oE "returned to [a-z]+" | sort -u)"
+           h="$(sed -n "/^## Handoff/,\$p" "$1" | grep -oE "returned to [a-z]+" | sort -u)"
+           [ -n "$h" ] && [ "$v" = "$h" ]' \
+  _ "$PKG/commands/validate-phase.md"
+# The convergence count spans every round, spec-bound ones included, so the suffix it
+# prescribes must attach to whichever returned-to verdict the round earned.
+check "/validate-phase does not tie the converging suffix to one destination" \
+  bash -c '! grep -qF "returned to implementation (escape" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
 # The manifest is untracked in a normal install and absent from one old enough to predate
 # it. Without a clause for that, the grep finds nothing, every upstream cause reads as
 # project-local, and the laundering this whole route exists to stop resumes silently (P7).
