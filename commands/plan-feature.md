@@ -15,6 +15,7 @@ one-line goals, dependencies, coarse acceptance — never deep specs (P4).
 - Project state exists: `docs/constraints.md` and `docs/phases/PHASES.md` present. If not, stop and name the missing entry point (`/bootstrap-project` or `/adopt-project`).
 - No phase for a *different* feature is `in-progress` (check the PHASES.md table). If one is, warn the operator — interleaving features is allowed but must be their explicit call.
 - If you were sent here to re-cut an existing feature's phases rather than to plan a new feature, skip to "Re-cutting a phase whose premise died" below; steps 1–5 still apply, step 6 does not.
+- If you were sent here to schedule a fix for a phase that is already `done` — a `needs a row:` entry in some phase's notes, or an operator naming a defect in a `done` phase's code — skip to "Scheduling a fix to a phase already done" below; steps 1–6 do not apply. The cut was right, so there is no feature to scope and nothing to interview for.
 
 **Reads:** `CLAUDE.md`, `docs/constraints.md`, `docs/adr/` (titles + status lines of all; full text of any ADR the feature might touch), `docs/index/_overview.md` (plus the specific module sections the feature will touch), `docs/phases/PHASES.md`, and `docs/product/requirements.md` **if present** (bootstrapped projects have one; adopted projects do not — its absence is normal, not a precondition failure).
 **Writes:** `docs/phases/PHASES.md` (appended feature section + rows).

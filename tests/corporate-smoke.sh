@@ -1052,6 +1052,13 @@ check "/implement-phase routes a done phase's defect to a new row /plan-feature 
            grep -qF "Scheduling a fix to a phase already done" "$1" &&
            grep -qxF "## Scheduling a fix to a phase already done" "$2"' \
   _ "$PKG/commands/implement-phase.md" "$PKG/commands/plan-feature.md"
+# ...and /plan-feature must dispatch to that section from its preconditions, as it does for a
+# re-cut. Without the dispatch, a fix request runs steps 1-6 as a new feature: an interview and
+# a new feature section, for a cut that was right.
+check "/plan-feature dispatches a done phase's fix before planning a feature" \
+  bash -c 'sed -n "/^\*\*Preconditions:\*\*/,/^\*\*Reads:\*\*/p" "$1" |
+           grep -qF "Scheduling a fix to a phase already done"' \
+  _ "$PKG/commands/plan-feature.md"
 # The iteration-3+ escape counted rounds and nothing else, so a spec whose findings fell
 # every round was discarded on the same terms as one that never converged, and each
 # re-expansion wrote new claims for the next round to audit. The record now carries a
