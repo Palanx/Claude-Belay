@@ -1045,6 +1045,13 @@ check "/validate-phase subtracts what notes.md declares not-ours, and says so" \
            sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- not-ours:" &&
            grep -qF -- "- not-ours: <path>" "$2"' \
   _ "$PKG/commands/validate-phase.md" "$PKG/templates/notes.md"
+# A defect in code a `done` phase delivered was deferred to `For later phases`, which schedules
+# nothing when no later row owns that code. The section name is a fact both commands share.
+check "/implement-phase routes a done phase's defect to a new row /plan-feature appends" \
+  bash -c 'grep -qF "needs a row:" "$1" &&
+           grep -qF "Scheduling a fix to a phase already done" "$1" &&
+           grep -qxF "## Scheduling a fix to a phase already done" "$2"' \
+  _ "$PKG/commands/implement-phase.md" "$PKG/commands/plan-feature.md"
 check "install.sh records every file it writes, belay-version included" \
   grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
 # A document describing another file's behaviour drifts every time that file changes, and the

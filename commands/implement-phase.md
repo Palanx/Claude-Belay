@@ -48,7 +48,11 @@ substituting them, so read the id and the flag out of the prompt.
      this round even where no Plan step names the file. The Plan enumerates the work; the Goal
      defines what done means. Scope creep is work the Goal does not ask for; a defect that
      makes the Goal false is not creep, however far from the Plan the file sits. If the Goal
-     survives it, it goes to `For later phases` with an owner. Say which of the two you chose,
+     survives it, it goes to `For later phases` with an owner — a later row that will touch that
+     code. Code a `done` phase delivered has no later owner and `For later phases` schedules
+     nothing by itself: write the entry as `needs a row: <done-id> — <what is wrong>` and tell
+     the operator in the final report to run `/plan-feature` for it
+     ("Scheduling a fix to a phase already done"). Say which you chose,
      so a deferral reads as decided rather than defaulted. Recording is not the default answer:
      a blank `notes.md` section fails the closure test and an unfixed defect fails nothing,
      which is a gradient to argue against, not to follow.

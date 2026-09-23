@@ -105,6 +105,18 @@ those land, and the rule is the ADR rule: **supersede, never edit.**
 No interview here unless the scope edge itself moved: the feature's blurb already
 converged. If it *did* move, this is a new feature section, not a re-cut.
 
+## Scheduling a fix to a phase already done
+
+`/implement-phase` sends here a defect found in code a `done` phase delivered, when the phase
+being implemented survives it (a `needs a row:` entry in that phase's notes). The cut was right
+and the code is wrong, so this is neither a re-cut nor an edit:
+
+1. Leave the `done` row exactly as it is. `superseded by` would record the cut as wrong, and
+   only `/validate-phase` writes `done`.
+2. Append one row to the same feature section: the next id, goal `fix <done-id>: <what is
+   wrong>`, `depends: -`, a coarse acceptance criterion that fails today, status `pending`.
+3. No interview: the scope edge did not move.
+
 ## Mandatory final step (P6)
 
 Re-read the appended PHASES.md section and verify: the blurb is there and names both the
