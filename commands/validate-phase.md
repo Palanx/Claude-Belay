@@ -109,8 +109,8 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    instinct to be helpful destroys the property under test, because a reviewer who knows what
    you meant cannot see that the spec never said it. Ask for two verdicts only:
    - **contradicts** — a hunk conflicts with the spec's Goal, Plan, Acceptance criteria or
-     Out of scope; cite spec line + hunk. Implementation failure: this gate FAILS, back to
-     `/implement-phase $1` with the finding — the same loop as any gate failure.
+     Out of scope; cite spec line + hunk. This gate FAILS. The reviewer can see the conflict,
+     not which side is stale — classify it before routing (see the routing below).
    - **undecidable** — it cannot tell from the spec alone whether a hunk is right, and names
      what was missing. Spec failure, not code failure: feed it to step 6.
    Anything else — naming, structure, "I'd have done it differently" — is taste: append it to
@@ -145,7 +145,7 @@ Append to `docs/phases/$1/notes.md`:
 - criteria: <n> passed / <n> failed
 - project gates: test <pass|fail|gap>, lint <...>, typecheck <...>
 - boundary sweep: <clean | not swept: no active deny rules | not swept: no file in the set is under a declared layer | violations listed above>
-- independent review: <clean | contradicts: <what> | undecidable: <what was missing> | skipped: no subagent>
+- independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
 - upstream: <none | <package file(s)> — /belay-feedback recommended>
 - verdict: <done | returned to implementation | escaped to /expand-phase: spec re-expanded>
@@ -154,8 +154,8 @@ Append to `docs/phases/$1/notes.md`:
 On full pass: PHASES.md status → `done`. On any failure: status stays `in-progress`;
 report exactly which gate failed with its output — that error text is the input for the
 next iteration. Where that iteration happens depends on what failed: steps 1–4 and a
-`contradicts` verdict go back to `/implement-phase $1` (the code is wrong); a closure-test
-failure or an `undecidable` verdict is fixed in `spec.md` plus a notes.md Deviations entry
+code-side `contradicts` go back to `/implement-phase $1` (the code is wrong); a closure-test
+failure, an `undecidable` verdict or a spec-side `contradicts` is fixed in `spec.md` plus a notes.md Deviations entry
 and re-validated from here (the record is wrong). **An amendment owes reconciliation**: name
 the other statements in the spec that assert the same fact, and fix or delete them in the same
 edit, listing in that Deviations entry which you checked. Nothing else will — the reviewer
@@ -168,6 +168,16 @@ and if the answer is "the fix I just wrote", delete it. A fix written to close a
 to introduce a claim with nothing behind it, which the next round returns as a finding of its
 own — measured repeatedly, in one phase as its dominant failure mode across four rounds. Say which of the two you are handing
 back, or the next session guesses.
+
+**Classify every `contradicts` before routing it.** The reviewer holds the spec and the diff,
+so it sees that they disagree and cannot see which one is stale; you hold the tree and its
+history. *Code-side*: the spec states what was intended and the hunk departs from it.
+*Spec-side*: the hunk is a deliberate change the spec failed to follow — a Deviations entry
+records it, `git log -S '<spec phrase>'` shows the sentence predates the change, or the
+code's own rationale argues against the sentence. Put the side and that evidence on the
+report line. No evidence either way → ask the operator; never default to either side. A
+spec-side finding is never closed by changing code: the reviewer is satisfied by either
+edit, and only one of them is true.
 
 **Both routes fix this project. Neither asks what caused the finding.** If the file that
 misbehaved is one `.claude/workflow/installed` names — the manifest of everything
@@ -187,10 +197,10 @@ of it depends on any of this being committed.
 
 - **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3); if you're on iteration 3+ **against the current spec** — count the `## Validation` sections in notes.md that follow the most recent `escaped to /expand-phase` verdict, or all of them if there is none — the spec is wrong — stop and say so, and route it. A wrong *spec* is re-expanded: **set the status to `pending` yourself** and hand the operator `/expand-phase $1`. Do not leave that flip to them — `/expand-phase` refuses any other status, so a route nobody performs is a route that ends in a bounce, and the phase iterates a sixth time instead (P9). Say in the report that you moved it. A wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). The count resets at that verdict because the escape's own output is a new spec: a lifetime count would put every phase that ever escaped permanently in escape territory, demanding a re-expansion of a spec written one round ago that is converging. Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
 - **The code was written by a human** (`/implement-phase --implemented`) → nothing here changes: every gate above judges the code and the record, not the author. If anything the independent review is *stronger*, because the reviewer cannot be told what the human meant — but it is also the first gate this code meets at all, since the edit-time hooks only see edits made through the agent. Read step 2's and step 3's output as new information, not as a re-check.
-- **Review verdicts split by consequence** — `contradicts` is a code bug (the loop above); `undecidable` is a spec bug, so the fix is a pointer in spec.md (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
+- **Review verdicts split by consequence** — `contradicts` goes where its classification says: code-side into the loop above, spec-side to `spec.md` like an `undecidable`; `undecidable` is a spec bug, so the fix is a pointer in spec.md (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
 - **Everything passes but the closure test** → still a failure: status stays `in-progress`. The code may well be right; the *record* isn't, and the next phase is what pays for that. It is also the cheapest failure here to clear, so clear it rather than arguing with it: name the stray file in the spec's Plan, or add the pointer the reviewer could not resolve, then write the Deviations entry that any spec amendment requires and re-run. A phase marked `done` asserts that a cold session can rebuild its context from the spec — that is exactly what the closure test measures, so `done` on a failed closure test would make the word mean nothing.
 
 ## Handoff
 
 Pass → `/expand-phase <next>` (the next pending phase whose dependencies are all done).
-Fail → `/implement-phase $1` with this validation report.
+Fail → `/implement-phase $1` with this validation report — unless every failure routes to the spec (closure test, `undecidable`, spec-side `contradicts`): then amend `spec.md` and re-run `/validate-phase $1`.

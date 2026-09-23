@@ -1030,6 +1030,13 @@ check "/implement-phase's final step owes the Plan's step-status text" \
   bash -c 'sed -n "/^## Mandatory final step/,/^## Failure modes/p" "$1" | grep -qF "status text" &&
            sed -n "/^\*\*Writes:/p" "$1" | grep -qF "spec.md"' \
   _ "$PKG/commands/implement-phase.md"
+# The starved reviewer sees that spec and diff disagree, never which side moved; routing
+# every `contradicts` to /implement-phase sent sessions to edit correct code until it matched
+# stale prose. The session classifies it, and the report line carries the side.
+check "/validate-phase classifies a contradicts before routing it" \
+  bash -c 'grep -qF "contradicts (code-side|spec-side)" "$1" &&
+           sed -n "/^On full pass/,/^\*\*Both routes/p" "$1" | grep -qF "spec-side"' \
+  _ "$PKG/commands/validate-phase.md"
 check "install.sh records every file it writes, belay-version included" \
   grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
 # A document describing another file's behaviour drifts every time that file changes, and the

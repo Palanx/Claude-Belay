@@ -539,7 +539,8 @@ plugin, adapted to run inside gates rather than as advice:
 - **Review by an agent that did not do the work.** `/validate-phase` dispatches one subagent
   with the spec and the diff and nothing else — deliberately starved, because a reviewer who
   knows what you meant cannot see that the spec never said it. It returns two verdicts:
-  *contradicts* (code bug, back to `/implement-phase`) and *undecidable* (spec bug, the
+  *contradicts* (a conflict; the running session decides which side is stale — code back to
+  `/implement-phase`, spec amended like an *undecidable*) and *undecidable* (spec bug, the
   closure test fails). Taste is not a verdict; it goes to notes, never blocks, so the gate
   stays deterministic (P3).
 
