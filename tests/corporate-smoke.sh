@@ -1037,6 +1037,14 @@ check "/validate-phase classifies a contradicts before routing it" \
   bash -c 'grep -qF "contradicts (code-side|spec-side)" "$1" &&
            sed -n "/^On full pass/,/^\*\*Both routes/p" "$1" | grep -qF "spec-side"' \
   _ "$PKG/commands/validate-phase.md"
+# A path in the diff the phase did not write has two sources — the package and the operator —
+# and only the first was subtractable: an operator's mid-phase edit to CLAUDE.md made step 6
+# demand the spec claim authorship of it. The line is a fact two files share, so both carry it.
+check "/validate-phase subtracts what notes.md declares not-ours, and says so" \
+  bash -c 'grep -qF -- "- not-ours: <path>" "$1" &&
+           sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- not-ours:" &&
+           grep -qF -- "- not-ours: <path>" "$2"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/templates/notes.md"
 check "install.sh records every file it writes, belay-version included" \
   grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
 # A document describing another file's behaviour drifts every time that file changes, and the

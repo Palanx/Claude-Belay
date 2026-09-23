@@ -9,7 +9,10 @@
 
 <!-- /implement-phase --implemented also writes a `- base: <ref>` line here (the
      commit the phase started from, or `working tree`). /validate-phase reads it
-     to build its diff, so committed work is still reviewable. -->
+     to build its diff, so committed work is still reviewable.
+     A file changed mid-phase by someone other than this phase — the operator
+     amending CLAUDE.md, say — gets a `- not-ours: <path> — <who, why>` line;
+     /validate-phase subtracts it from the file set and names it in its report. -->
 
 {{What exists now that didn't before: files created/changed, behavior added.
 Written for a reader who saw none of the work happen.}}

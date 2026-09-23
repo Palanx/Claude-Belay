@@ -34,6 +34,14 @@ the spec to account for them, and its prescribed fix would have the spec claim t
 `docs/adr/0001-ownership-is-decided-by-the-install-manifest.md`); if it is absent, say so on
 the `upstream:` line rather than treating everything as phase work.
 
+**Subtract what `notes.md` declares not this phase's**: every `- not-ours: <path> — <who
+changed it, and why>` line under Outcome, unless the spec's Plan names that path. Same shape
+as the manifest — a path in the diff the phase did not write — for the change the manifest
+cannot name: an operator amending `CLAUDE.md`, a constraint or an ADR while the phase is open.
+Whoever made the change writes the line, or the session that finds it after asking the
+operator; never infer it from the diff. A path the Plan names cannot be declared: one file's
+hunks cannot be split by author, so the spec accounts for it as it does today.
+
 **Check the file set before using it.** If it is empty, or holds nothing beyond the files the
 Plan names, stop and say so — do not run the gates over it. A phase that changed nothing is
 not what that looks like; a measurement that did not happen is. The usual cause is a
@@ -98,7 +106,7 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    restricted to step 3's file set (defined above — that definition is what makes this work
    on code the operator already committed). Nothing else —
    not `notes.md`, not the dependency notes, not your summary. **Say in the prompt which paths
-   you withheld** — `notes.md` always, plus whatever the manifest subtraction removed — and
+   you withheld** — `notes.md` always, plus whatever the manifest and `not-ours` subtractions removed — and
    that their absence is not a finding. The file set contains `notes.md` by construction (both
    this command and `/implement-phase` write it), so withholding it silently leaves the
    reviewer holding a spec whose Plan says the phase writes that file and a diff that does
@@ -148,6 +156,7 @@ Append to `docs/phases/$1/notes.md`:
 - independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
 - upstream: <none | <package file(s)> — /belay-feedback recommended>
+- not-ours: <none | <path(s)> subtracted>
 - verdict: <done | returned to implementation | escaped to /expand-phase: spec re-expanded>
 ```
 
