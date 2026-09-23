@@ -1023,6 +1023,13 @@ check "/validate-phase subtracts the installed manifest from the file set" \
   bash -c 'grep -qF "Subtract the files the package installed" "$1" &&
            grep -qF ".claude/workflow/installed" "$1"' \
   _ "$PKG/commands/validate-phase.md"
+# A Plan step whose work landed kept saying `Owed`: the final step wrote notes.md and
+# PHASES.md and never returned to the Plan, and no gate reads prose — so a later round
+# rediscovered the stale marker as a claim the tree contradicts.
+check "/implement-phase's final step owes the Plan's step-status text" \
+  bash -c 'sed -n "/^## Mandatory final step/,/^## Failure modes/p" "$1" | grep -qF "status text" &&
+           sed -n "/^\*\*Writes:/p" "$1" | grep -qF "spec.md"' \
+  _ "$PKG/commands/implement-phase.md"
 check "install.sh records every file it writes, belay-version included" \
   grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
 # A document describing another file's behaviour drifts every time that file changes, and the

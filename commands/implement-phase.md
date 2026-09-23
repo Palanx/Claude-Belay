@@ -24,7 +24,7 @@ substituting them, so read the id and the flag out of the prompt.
 - If status is `superseded by <ids>`: nothing to do here — this cut was replaced. Work on one of the ids named instead.
 
 **Reads:** `CLAUDE.md`, `docs/phases/$1/spec.md` (+ `notes.md` if resuming), every file in the spec's Context pointers. Nothing else unless the spec proves insufficient — and if it does, that goes in the notes (see failure modes).
-**Writes:** the source files named in the spec's Plan (none in `--implemented` mode), `docs/phases/$1/notes.md`, `docs/phases/PHASES.md` (status transitions).
+**Writes:** the source files named in the spec's Plan (none in `--implemented` mode), `docs/phases/$1/spec.md` (only the Plan's per-step status text, when the spec carries one), `docs/phases/$1/notes.md`, `docs/phases/PHASES.md` (status transitions).
 
 ## Steps
 
@@ -126,6 +126,12 @@ Write `docs/phases/$1/notes.md` from `docs/templates/notes.md`:
 - **Deviations** — every one, or explicitly `None`.
 - **Debt** — shortcuts taken and their upgrade path. A deliberate ceiling left in the source is marked there with a `belay-debt:` comment naming the limit and what triggers the upgrade (`# belay-debt: global lock, per-account locks if throughput matters`); list those here too, so the ledger is one `grep -rn 'belay-debt:'` away.
 - **For later phases** — anything discovered that changes what a future phase should know. `/expand-phase` reads this section first; it is the channel through which reality reaches the plan.
+
+If the spec's Plan marks each step's state in prose — `Owed`, `Landed`, a checkbox; the
+project's own vocabulary, belay's template has none — update the status text of every step
+whose work landed this round, and name them in the report. No gate reads that text, so a
+marker left stale is found a round later as a claim the tree contradicts. It is bookkeeping,
+not an amendment: no Deviations entry, no reconciliation.
 
 Update PHASES.md status: stays `in-progress` (validation flips it to `done`), or
 `blocked: <reason>`. Then report: outcome summary, acceptance status, deviations.
