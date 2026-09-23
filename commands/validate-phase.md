@@ -156,6 +156,7 @@ Append to `docs/phases/$1/notes.md`:
 - independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent>
 - closure test: <pass|fail: reason>
 - findings: <n> — failed criteria + failed project-gate categories + boundary violations + review findings (each contradicts and each undecidable) + closure-test failures no review finding already counts; 0 on a pass
+- spec size: <bytes, `wc -c < docs/phases/$1/spec.md`> (<+n | -n> since the previous validation | first)
 - upstream: <none | <package file(s)> — /belay-feedback recommended>
 - not-ours: <none | <path(s)> subtracted>
 - verdict: <done | returned to implementation | returned to implementation (escape not taken: converging <n → … → n>) | escaped to /expand-phase: spec re-expanded>
@@ -166,13 +167,18 @@ report exactly which gate failed with its output — that error text is the inpu
 next iteration. Where that iteration happens depends on what failed: steps 1–4 and a
 code-side `contradicts` go back to `/implement-phase $1` (the code is wrong); a closure-test
 failure, an `undecidable` verdict or a spec-side `contradicts` is fixed in `spec.md` plus a notes.md Deviations entry
-and re-validated from here (the record is wrong). **An amendment owes reconciliation**: name
-the other statements in the spec that assert the same fact, and fix or delete them in the same
-edit, listing in that Deviations entry which you checked. Nothing else will — the reviewer
-sees the spec and the diff, and a statement the amendment just invalidated is in the spec but
-not in the diff, so it surfaces only when some later round's diff happens to touch it. Deleting
-a statement the amendment leaves unfounded is a legitimate outcome and often the right one;
-rewording it is how the next round's finding gets written. **And check what founds the
+and re-validated from here (the record is wrong). **Delete before you add.** A spec-side finding is closed by taking prose out first: if it
+is about a sentence — a claim the reviewer could not decide, or found false — delete that
+sentence, or cut it back to the conclusion it was supporting. Add a sentence only when the
+finding is a hunk the spec never covers and no existing sentence can carry the pointer.
+Every sentence added joins what the next round's reviewer audits, and only a re-expansion
+ever takes one out again. **An amendment owes reconciliation**: name the other statements
+in the spec that assert the same fact, and those the amendment makes redundant, and fix or
+delete them in the same edit, listing in that Deviations entry which you checked — or that
+none were. Nothing else will — the reviewer sees the spec and the diff, and a statement the
+amendment just invalidated is in the spec but not in the diff, so it surfaces only when
+some later round's diff happens to touch it. Rewording a stale statement instead of
+deleting it is how the next round's finding gets written. **And check what founds the
 sentences the amendment itself adds**: after writing a fix, ask what each new claim rests on,
 and if the answer is "the fix I just wrote", delete it. A fix written to close a finding tends
 to introduce a claim with nothing behind it, which the next round returns as a finding of its
@@ -207,7 +213,7 @@ of it depends on any of this being committed.
 
 - **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3). **From iteration 3 against the current spec** — count the `## Validation` sections in notes.md that follow the most recent `escaped to /expand-phase` verdict, or all of them if there is none, this round's included — read their `- findings:` lines in order. If every count is strictly below the one before it, the loop is converging: do not escape. Leave the status `in-progress`, write the verdict as `returned to implementation (escape not taken: converging <n → … → n>)`, and tell the operator that re-expanding anyway is theirs to decide. A strictly falling count of whole numbers reaches zero within as many rounds as its first value, so this cannot iterate forever. Otherwise — any count equal to or above the one before it, or any counted round with no `- findings:` line, as every record written before that line existed has none — the spec is wrong: stop and say so, and route it. A wrong *spec* is re-expanded: **set the status to `pending` yourself** and hand the operator `/expand-phase $1`. Do not leave that flip to them — `/expand-phase` refuses any other status, so a route nobody performs is a route that ends in a bounce, and the phase iterates a sixth time instead (P9). Say in the report that you moved it. A wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). The count resets at that verdict because the escape's own output is a new spec: a lifetime count would put every phase that ever escaped permanently in escape territory, demanding a re-expansion of a spec written one round ago that is converging. The trend only ever relaxes the escape, never tightens it: whatever fired on the round count alone still fires, except a run whose findings fall every round. That run is not a spec nobody believes, and re-expanding it swaps a converging spec for new claims the next round has to audit. Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
 - **The code was written by a human** (`/implement-phase --implemented`) → nothing here changes: every gate above judges the code and the record, not the author. If anything the independent review is *stronger*, because the reviewer cannot be told what the human meant — but it is also the first gate this code meets at all, since the edit-time hooks only see edits made through the agent. Read step 2's and step 3's output as new information, not as a re-check.
-- **Review verdicts split by consequence** — `contradicts` goes where its classification says: code-side into the loop above, spec-side to `spec.md` like an `undecidable`; `undecidable` is a spec bug, so the fix is a pointer in spec.md (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
+- **Review verdicts split by consequence** — `contradicts` goes where its classification says: code-side into the loop above, spec-side to `spec.md` like an `undecidable`; `undecidable` is a spec bug, so the fix is in spec.md — deleting the sentence it could not decide before adding the pointer it lacked (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
 - **Everything passes but the closure test** → still a failure: status stays `in-progress`. The code may well be right; the *record* isn't, and the next phase is what pays for that. It is also the cheapest failure here to clear, so clear it rather than arguing with it: name the stray file in the spec's Plan, or add the pointer the reviewer could not resolve, then write the Deviations entry that any spec amendment requires and re-run. A phase marked `done` asserts that a cold session can rebuild its context from the spec — that is exactly what the closure test measures, so `done` on a failed closure test would make the word mean nothing.
 
 ## Handoff

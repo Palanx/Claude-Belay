@@ -1060,6 +1060,22 @@ check "/validate-phase's escape reads the findings trend, not only the round cou
   bash -c 'sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- findings: <n>" &&
            grep -F "**Gate failure**" "$1" | grep -qF "strictly below"' \
   _ "$PKG/commands/validate-phase.md"
+# The validation loop had a growth term and no decay term: every spec-side finding was
+# closed by adding prose to the spec the next reviewer audits whole, so findings tracked the
+# spec's size, not the code — measured in a consuming project as rounds whose findings did
+# not fall while the code stayed frozen. Deleting has to lead, and growth has to be visible.
+check "/validate-phase makes deletion the default spec-side remedy" \
+  bash -c 'sed -n "/^On full pass/,/^\*\*Both routes/p" "$1" | grep -qF "Delete before you add" &&
+           grep -qF "makes redundant" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
+check "/validate-phase records the spec's size each round" \
+  bash -c 'sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- spec size:"' \
+  _ "$PKG/commands/validate-phase.md"
+# The defect was rarely in a spec's conclusion and usually in the sentence justifying it,
+# written from memory and more specific, so it went false first. A conclusion is one claim
+# the reviewer audits; its "because" is a second one.
+check "the spec template keeps conclusions and sends reasoning to notes.md" \
+  grep -qF "conclusions, not the reasoning" "$PKG/templates/spec.md"
 check "install.sh records every file it writes, belay-version included" \
   grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
 # A document describing another file's behaviour drifts every time that file changes, and the

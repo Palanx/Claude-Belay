@@ -11,7 +11,13 @@
      human-readable plan document beside it: /validate-phase judges the work
      against THIS spec, so a second document drifts from it and one of the two
      is lying. A rendering, if one is wanted anyway, is disposable,
-     regenerable and never authoritative. -->
+     regenerable and never authoritative.
+     State conclusions, not the reasoning behind them. "GET /tasks returns the
+     newest task first" is one claim /validate-phase's reviewer audits;
+     "…because the created_at index makes that order free" is a second, more
+     specific one, and it is the one that goes false first. Reasoning worth keeping goes in
+     notes.md, which the reviewer never reads — a spec that argues for itself
+     grows the surface every round audits. -->
 
 ## Goal
 
