@@ -1052,6 +1052,14 @@ check "/implement-phase routes a done phase's defect to a new row /plan-feature 
            grep -qF "Scheduling a fix to a phase already done" "$1" &&
            grep -qxF "## Scheduling a fix to a phase already done" "$2"' \
   _ "$PKG/commands/implement-phase.md" "$PKG/commands/plan-feature.md"
+# The iteration-3+ escape counted rounds and nothing else, so a spec whose findings fell
+# every round was discarded on the same terms as one that never converged, and each
+# re-expansion wrote new claims for the next round to audit. The record now carries a
+# comparable count, and the escape reads its trend.
+check "/validate-phase's escape reads the findings trend, not only the round count" \
+  bash -c 'sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- findings: <n>" &&
+           grep -F "**Gate failure**" "$1" | grep -qF "strictly below"' \
+  _ "$PKG/commands/validate-phase.md"
 check "install.sh records every file it writes, belay-version included" \
   grep -qE '^record \.claude/workflow/belay-version' "$PKG/install.sh"
 # A document describing another file's behaviour drifts every time that file changes, and the
