@@ -14,8 +14,7 @@ paths:
 ## Phase-workflow fixes shipped without a live run (reviewed 2026-09-23)
 
 Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/plan-feature.md`,
-`templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`,
-`tests/corporate-smoke.sh`
+`templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`
 
 Eight commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`. They close every open entry in
