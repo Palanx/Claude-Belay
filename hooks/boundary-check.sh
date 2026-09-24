@@ -17,6 +17,9 @@
 # and they look nothing alike in a diff: an aliased import (`@/infra/x`), a
 # dynamic one, and a barrel re-export — importing from `src/shared/index.ts`,
 # which re-exports infra, names infra on no line of the importing file.
+# Python has two of its own: `from . import infra` (whether `infra` is the layer or a
+# subpackage of the importing one is not decidable from the line) and an import by
+# string, `importlib.import_module("infra.db")`. Upgrade path: import-linter, below.
 #
 # C-family files are read through cpp_lines (hooks/lib/common.sh): continuations are
 # joined, `#if 0` regions dropped, same-file `#define`d include names expanded, and
