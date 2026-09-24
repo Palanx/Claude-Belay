@@ -691,6 +691,22 @@ check "boundary-check: no rules file exits 0" test "$(bc src/bad.js)" = 0
 mv "$C/.claude/workflow/boundaries.rules.off" "$C/.claude/workflow/boundaries.rules"
 rm -rf "$C/tools"
 
+# A C/C++ project nests its layers (src/core/, src/hal/), so the full prefix never appears on
+# an include line and only the directory-name bracket can match. The app/lib fixture above
+# cannot see that path: `lib/` is on the line verbatim. Five spellings of a real include of a
+# denied layer used to exit 0 — angle brackets, `# include`, a tab, no space, #include_next.
+cp "$C/.claude/workflow/boundaries.rules" "$TMP/rules.bak"
+printf 'layer core src/core/\nlayer hal src/hal/\ndeny core -> hal\n' >>"$C/.claude/workflow/boundaries.rules"
+mkdir -p "$C/src/core"
+for form in '#include <hal/bus.h>' '# include "hal/bus.h"' "#$(printf '\t')include \"hal/bus.h\"" \
+            '#include"hal/bus.h"' '#include_next "hal/bus.h"'; do
+  printf '%s\n' "$form" >"$C/src/core/x.cpp"
+  check "boundary-check: C/C++ form reported: $form" test "$(bc src/core/x.cpp)" = 2
+done
+printf '#include <vector>\n#include "halo/x.h"\n' >"$C/src/core/x.cpp"
+check "boundary-check: unrelated C/C++ includes stay clean" test "$(bc src/core/x.cpp)" = 0
+rm -rf "$C/src/core"; mv "$TMP/rules.bak" "$C/.claude/workflow/boundaries.rules"
+
 # --staged: the human commit path. Same gates, addressed by what git has staged.
 cp "$PKG/hooks/pre-commit-security.sh" "$C/.claude/hooks/"
 gitq "$C" add -A >/dev/null; gitq "$C" commit -qm init
