@@ -71,7 +71,8 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
 
 3. **Boundary sweep.** Run `scripts/check.sh --files <every source file in the phase's
    file set>` (the file set is defined above). This is the same gate the edit path runs,
-   re-run as a batch in case any edit bypassed it.
+   re-run as a batch in case any edit bypassed it, plus `include-check.sh`, which the edit
+   path never runs: it follows C/C++ includes through headers in no declared layer.
    A sweep comes back clean for three different reasons and only one of them is "no
    violations", so check the other two against `.claude/workflow/boundaries.rules` before
    reporting `clean` (P7):

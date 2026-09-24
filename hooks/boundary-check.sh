@@ -17,13 +17,12 @@
 # and they look nothing alike in a diff: an aliased import (`@/infra/x`), a
 # dynamic one, and a barrel re-export — importing from `src/shared/index.ts`,
 # which re-exports infra, names infra on no line of the importing file.
-# C/C++ has its own set, because a line grep sees no preprocessor: an include
-# through a macro (`#define H "hal/x.h"` then `#include H`), a line-continued
-# `#include \`, a transitive include through a header that sits in no layer, and a
-# C++20 module `import hal.bus;`. The opposite error too: an include inside `#if 0`
-# is dead code and is still reported. Closing these needs a preprocessor or a
-# compiler-driven include graph — the resolver the next paragraph routes to
-# scripts/check.sh, not a wider regex here.
+#
+# C-family files are read through cpp_lines (hooks/lib/common.sh): continuations are
+# joined, `#if 0` regions dropped, same-file `#define`d include names expanded, and
+# a C++20 `import infra.x;` counts. An include that reaches a denied layer through a
+# header in no layer is not visible from one file; include-check.sh follows it, and
+# only scripts/check.sh runs that, since it has to read files other than the one edited.
 #
 # Do not "upgrade" this script in place. dependency-cruiser (js) and
 # import-linter (py) resolve a whole module graph; this gate is handed ONE file
@@ -71,19 +70,12 @@ done < <(grep -E '^layer[[:space:]]' "$RULES")
 
 layer_prefix() { awk -v n="$1" '$1=="layer" && $2==n {print $3; exit}' "$RULES"; }
 
-IMPORT_RE='^[[:space:]]*((import|export|from|require|include|use|using)[[:space:](]|#[[:space:]]*include(_next)?[[:space:]"<])|require\(|import\('
-
 violations=""
 while read -r _ from arrow to; do
   [ "$arrow" = "->" ] && [ "$from" = "$FROM" ] || continue
   tprefix="$(layer_prefix "$to")"
   [ -n "$tprefix" ] || continue
-  tdir="$(basename "$tprefix")"
-  # Import line mentioning the denied layer: its full prefix, or its directory
-  # name bounded by a path separator, quote or `<` (matches ../infra/x, src/infra/x,
-  # <infra/x.h>).
-  hits="$(grep -nE "$IMPORT_RE" "$FILE" 2>/dev/null \
-    | grep -E "$tprefix|[/\"'<[:space:]]$tdir/" || true)"
+  hits="$(layer_hits "$FILE" "$tprefix")"
   if [ -n "$hits" ]; then
     violations="$violations
 Rule violated: deny $from -> $to   ($REL is in layer '$from')

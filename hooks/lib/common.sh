@@ -10,6 +10,7 @@
 #   $MANUAL      path to .claude/workflow/toolchain.manual.json (may not exist)
 #   $HOOK_INPUT  raw stdin JSON from Claude Code
 #   json_get, json_file_get, tc_cmd, tc_file_cmd, tc_exempt_prefixes, gap_warn, run_on_file
+#   is_cfamily, cpp_lines, layer_hits   (boundary matching; see their comments)
 #
 # JSON parsing needs jq or python3. Every machine that runs Claude Code has a
 # shell; nearly every one has python3; most have jq. If neither exists the hook
@@ -139,4 +140,70 @@ run_on_file() {
   else
     bash -c "$tmpl \"\$1\"" _ "$file"
   fi
+}
+
+# --- boundary matching, shared by boundary-check.sh and include-check.sh ------
+
+# is_cfamily <file> — true for the extensions cpp_lines may preprocess. Everything else
+# is read raw: in Python, shell or Ruby `# if 0` is an ordinary comment, and treating it
+# as a conditional would skip to an `#endif` that never comes and exempt the rest.
+is_cfamily() {
+  case "$1" in
+    *.c|*.h|*.cc|*.cpp|*.cxx|*.c++|*.hpp|*.hh|*.hxx|*.h++|*.inl|*.ipp|*.tpp|*.ixx|*.cppm|*.m|*.mm) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# cpp_lines <file> — a C-family file as the preprocessor would hand it to an include
+# scan, one `N:text` per logical line (N = its first physical line): `\` continuations
+# joined, `#if 0` regions dropped (nesting counted, `#else`/`#elif` at depth 1 ends one),
+# and `#include NAME` expanded when NAME is `#define`d to "…" or <…> earlier in the same
+# file. Not a preprocessor: no other conditional is evaluated, and a macro defined in
+# another header stays unexpanded.
+cpp_lines() {
+  awk '
+    buf == "" { start = NR }
+    /\\$/ { buf = buf substr($0, 1, length($0) - 1); next }
+    {
+      line = buf $0; buf = ""
+      if (dead) {
+        if (line ~ /^[ \t]*#[ \t]*if(def|ndef)?([^A-Za-z0-9_]|$)/) dead++
+        else if (line ~ /^[ \t]*#[ \t]*endif/) dead--
+        else if (dead == 1 && line ~ /^[ \t]*#[ \t]*el(se|if)/) dead = 0
+        next
+      }
+      if (line ~ /^[ \t]*#[ \t]*if[ \t]+0([^0-9A-Za-z_]|$)/) { dead = 1; next }
+      if (line ~ /^[ \t]*#[ \t]*define[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+["<]/) {
+        d = line; sub(/^[ \t]*#[ \t]*define[ \t]+/, "", d)
+        name = d; sub(/[ \t].*/, "", name)
+        val = d; sub(/^[A-Za-z_][A-Za-z0-9_]*[ \t]+/, "", val); sub(/[ \t]+$/, "", val)
+        mac[name] = val
+      } else if (line ~ /^[ \t]*#[ \t]*include(_next)?[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*$/) {
+        name = line; sub(/^[ \t]*#[ \t]*include(_next)?[ \t]+/, "", name); sub(/[ \t]+$/, "", name)
+        if (name in mac) line = "#include " mac[name]
+      }
+      print start ":" line
+    }
+    END { if (buf != "") print start ":" buf }
+  ' "$1" 2>/dev/null
+}
+
+# Import-ish lines, matched after the `N:` prefix every source line carries here.
+BOUNDARY_IMPORT_RE='^[0-9]+:[[:space:]]*((import|export|from|require|include|use|using)[[:space:](]|#[[:space:]]*include(_next)?[[:space:]"<])|require\(|import\('
+
+# layer_hits <file> <layer-prefix> — the file's import-ish lines that name that layer: its
+# full prefix, or its directory name bounded by a path separator, quote or `<` (matches
+# ../infra/x, src/infra/x, <infra/x.h>); in C-family files also a C++20 module import
+# whose first component is the directory name (`import infra.db;`). Prints N:text lines.
+layer_hits() {
+  local f="$1" tprefix="$2" tdir mod="" lines
+  tdir="$(basename "$tprefix")"
+  if is_cfamily "$f"; then
+    lines="$(cpp_lines "$f")"
+    mod="|^[0-9]+:[[:space:]]*(export[[:space:]]+)?import[[:space:]]+$tdir[.;]"
+  else
+    lines="$(grep -n '' "$f" 2>/dev/null)"
+  fi
+  printf '%s\n' "$lines" | grep -E "$BOUNDARY_IMPORT_RE" \
+    | grep -E "$tprefix|[/\"'<[:space:]]$tdir/$mod" || true
 }

@@ -657,7 +657,8 @@ rm -f "$C/.claude/workflow/toolchain.manual.json"
 
 # --files: the same gates the agent hits, addressed by path.
 mkdir -p "$C/.claude/hooks" "$C/src" "$C/lib"
-cp "$PKG/hooks/post-edit-gate.sh" "$PKG/hooks/boundary-check.sh" "$C/.claude/hooks/"
+cp "$PKG/hooks/post-edit-gate.sh" "$PKG/hooks/boundary-check.sh" "$PKG/hooks/include-check.sh" \
+   "$C/.claude/hooks/"
 printf 'layer app src/\nlayer infra lib/\ndeny app -> infra\n' >"$C/.claude/workflow/boundaries.rules"
 cjson '{ "commands": {}, "file_commands": {}, "exempt": [], "gaps": [] }'
 printf 'import x from "../lib/db"\n' >"$C/src/bad.js"
@@ -682,6 +683,7 @@ check "--files says nothing was checked" grep -q 'gated 0 of' "$TMP/check.out"
 # as a violation. Every caller here (edit-gate-adapter, check.sh) folds non-zero into
 # "violation", so these pin 2 as the only failure code and keep the no-coverage cases at 0.
 bc() { (cd "$C" && CLAUDE_PROJECT_DIR="$C" ./.claude/hooks/boundary-check.sh "$@" >/dev/null 2>&1; echo $?); }
+ic() { (cd "$C" && CLAUDE_PROJECT_DIR="$C" ./.claude/hooks/include-check.sh "$@" >/dev/null 2>&1; echo $?); }
 check "boundary-check: violation exits exactly 2" test "$(bc src/bad.js)" = 2
 check "boundary-check: clean file in a layer exits 0" test "$(bc src/good.js)" = 0
 mkdir -p "$C/tools" && printf 'const t = 1\n' >"$C/tools/t.js"
@@ -696,7 +698,9 @@ rm -rf "$C/tools"
 # cannot see that path: `lib/` is on the line verbatim. Five spellings of a real include of a
 # denied layer used to exit 0 — angle brackets, `# include`, a tab, no space, #include_next.
 cp "$C/.claude/workflow/boundaries.rules" "$TMP/rules.bak"
-printf 'layer core src/core/\nlayer hal src/hal/\ndeny core -> hal\n' >>"$C/.claude/workflow/boundaries.rules"
+# Its own rules, not appended ones: under the fixture's `layer app src/` every src/ path is
+# layered, and the transitive case below needs src/common/ to sit in no layer.
+printf 'layer core src/core/\nlayer hal src/hal/\ndeny core -> hal\n' >"$C/.claude/workflow/boundaries.rules"
 mkdir -p "$C/src/core"
 for form in '#include <hal/bus.h>' '# include "hal/bus.h"' "#$(printf '\t')include \"hal/bus.h\"" \
             '#include"hal/bus.h"' '#include_next "hal/bus.h"'; do
@@ -705,6 +709,46 @@ for form in '#include <hal/bus.h>' '# include "hal/bus.h"' "#$(printf '\t')inclu
 done
 printf '#include <vector>\n#include "halo/x.h"\n' >"$C/src/core/x.cpp"
 check "boundary-check: unrelated C/C++ includes stay clean" test "$(bc src/core/x.cpp)" = 0
+
+# What a line grep cannot see without a preprocessor: the include spread over two lines, named
+# through a same-file macro, or written as a C++20 module; and the opposite error, an include
+# inside `#if 0` reported although it is dead code.
+cx() { printf '%s\n' "$@" >"$C/src/core/x.cpp"; bc src/core/x.cpp; }
+check "boundary-check: line-continued #include reported" test "$(cx '#include \' '"hal/bus.h"')" = 2
+check "boundary-check: include through a same-file macro reported" \
+  test "$(cx '#define HAL_HEADER "hal/bus.h"' '#include HAL_HEADER')" = 2
+check "boundary-check: C++20 module import reported" test "$(cx 'import hal.bus;')" = 2
+check "boundary-check: exported C++20 module import reported" test "$(cx 'export import hal;')" = 2
+check "boundary-check: include inside #if 0 is dead code" \
+  test "$(cx '#if 0' '#include "hal/bus.h"' '#endif')" = 0
+check "boundary-check: nested conditional inside #if 0 stays dead" \
+  test "$(cx '#if 0' '#if X' '#endif' '#include "hal/bus.h"' '#endif')" = 0
+check "boundary-check: #else of #if 0 is live" \
+  test "$(cx '#if 0' '#else' '#include "hal/bus.h"' '#endif')" = 2
+# `# if 0` is a plain comment outside C: preprocessing a Ruby file would skip it to the end.
+printf '%s\n' '# if 0 disables the next line' 'require "../hal/bus"' >"$C/src/core/x.rb"
+check "boundary-check: non-C files are not preprocessed" test "$(bc src/core/x.rb)" = 2
+rm -f "$C/src/core/x.rb"
+
+# Transitive: x.cpp reaches hal through a header in no declared layer. The per-file gate cannot
+# see it — it reads one file — so include-check.sh follows the includes, and only check.sh
+# runs it. It must catch the chain from either end: the layered file, or the header an edit
+# actually touched.
+mkdir -p "$C/src/common"
+printf '#include "hal/bus.h"\n' >"$C/src/common/y.h"
+printf '#include "common/y.h"\n' >"$C/src/core/x.cpp"
+check "boundary-check: stays per-file on a transitive include" test "$(bc src/core/x.cpp)" = 0
+check "include-check: transitive include reported from the layered file" test "$(ic src/core/x.cpp)" = 2
+check "include-check: transitive include reported from the unlayered header" \
+  test "$(ic src/common/y.h)" = 2
+runcheck --files src/core/x.cpp && bad "check.sh --files blocks a transitive include" \
+                                || ok "check.sh --files blocks a transitive include"
+check "check.sh names the header the chain went through" grep -q 'src/common/y.h' "$TMP/check.out"
+printf '#include <common/y.h>\n' >"$C/src/core/x.cpp"
+check "include-check: angle-bracket include is followed" test "$(ic src/core/x.cpp)" = 2
+printf '#include "other/z.h"\n' >"$C/src/common/y.h"
+check "include-check: a chain that never reaches hal is clean" test "$(ic src/core/x.cpp)" = 0
+rm -rf "$C/src/common"
 rm -rf "$C/src/core"; mv "$TMP/rules.bak" "$C/.claude/workflow/boundaries.rules"
 
 # --staged: the human commit path. Same gates, addressed by what git has staged.

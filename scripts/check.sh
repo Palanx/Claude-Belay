@@ -74,7 +74,7 @@ gate_files() {
     # under a shell that does not word-split, which arrives as a single nonexistent path.
     if [ ! -f "$abs" ]; then skipped="$skipped $f"; continue; fi
     gated=$((gated + 1))
-    for g in post-edit-gate boundary-check; do
+    for g in post-edit-gate boundary-check include-check; do
       # Pass the gate's own stderr through: it already distinguishes a real
       # failure (POST-EDIT GATE FAILED) from a formatter that merely rewrote the
       # file (REFORMATTED ON DISK), and --staged depends on that distinction.

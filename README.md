@@ -53,7 +53,7 @@ State layout in an installed project:
 CLAUDE.md                          # <150 lines, pointer table — the only always-loaded file
 .claude/
 ├── commands/*.md                  # the nine slash commands
-├── hooks/                         # post-edit-gate, boundary-check, pre-commit-security (+ lib/, cursor-adapter)
+├── hooks/                         # post-edit-gate, boundary-check, include-check, pre-commit-security (+ lib/, cursor-adapter)
 ├── settings.json                  # hook wiring (PostToolUse Edit|Write, PreToolUse Bash)
 └── workflow/
     ├── toolchain.json             # detected commands per category + explicit gaps (generated)
@@ -634,6 +634,7 @@ same script for the same reason, and there is no per-caller variant to keep in s
 |---|---|
 | `post-edit-gate.sh <file>` | runs whatever `toolchain.json` has for that file's extension — format, lint, and a file-scoped typecheck *where one exists* (several stacks have none: Node/TS typechecks project-wide only, Unity and Unreal not at all — `gaps` names each). Exit 2 returns the failure on stderr |
 | `boundary-check.sh <file>` | grep-heuristic check of `boundaries.rules` deny edges on that file. Exit 2 returns the violation on stderr; exit 0 means no violation **or** no rule covering the file — including the fresh-install state where the rules file is still commented out |
+| `include-check.sh <file>` | C/C++ only: follows a file's `#include`s through headers in no declared layer and reports a chain that reaches a denied layer — from the layered file, or from the unlayered header an edit touched. It reads files other than its argument, so `scripts/check.sh` (`--files`, `--staged`) runs it and the edit adapters do not. Same exit contract as `boundary-check.sh` |
 | `pre-commit-security.sh` | no arguments: protected-branch guard (opt-in via `.claude/workflow/protected-branches`, one anchored regex per line) + secret scan of staged changes (gitleaks or builtin patterns) + dependency audit when dependency files are staged. **Exit 2 means do not let this commit happen.** Corporate mode: also blocks commits while any belay state path shows in `git status` |
 
 | Adapter | Event | Calls |
