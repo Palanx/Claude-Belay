@@ -23,6 +23,8 @@
 # a C++20 `import infra.x;` counts. An include that reaches a denied layer through a
 # header in no layer is not visible from one file; include-check.sh follows it, and
 # only scripts/check.sh runs that, since it has to read files other than the one edited.
+# Python module paths are dotted, so `.py`/`.pyi` files match the layer's directory
+# name as a module's first component, or its full prefix in dotted form (layer_hits).
 #
 # Do not "upgrade" this script in place. dependency-cruiser (js) and
 # import-linter (py) resolve a whole module graph; this gate is handed ONE file

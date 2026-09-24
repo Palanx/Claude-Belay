@@ -730,6 +730,19 @@ printf '%s\n' '# if 0 disables the next line' 'require "../hal/bus"' >"$C/src/co
 check "boundary-check: non-C files are not preprocessed" test "$(bc src/core/x.rb)" = 2
 rm -f "$C/src/core/x.rb"
 
+# Python names a module with dots, never with `/`, so the path bracket could not see any
+# import of a denied package. The layer's directory name as the module's first component
+# (after any relative dots), or its full prefix in dotted form, is the dependency.
+px() { printf '%s\n' "$@" >"$C/src/core/x.py"; bc src/core/x.py; }
+check "boundary-check: python from-import of a denied package reported" test "$(px 'from hal.bus import read')" = 2
+check "boundary-check: python import of a denied package reported" test "$(px 'import hal.bus')" = 2
+check "boundary-check: python import list naming a denied package reported" test "$(px 'import os, hal')" = 2
+check "boundary-check: python relative import of a denied package reported" test "$(px 'from ..hal import bus')" = 2
+check "boundary-check: python import by full dotted prefix reported" test "$(px 'from src.hal.bus import read')" = 2
+check "boundary-check: python package sharing a name prefix stays clean" \
+  test "$(px 'import halo' 'from halo.x import y')" = 0
+rm -f "$C/src/core/x.py"
+
 # Transitive: x.cpp reaches hal through a header in no declared layer. The per-file gate cannot
 # see it — it reads one file — so include-check.sh follows the includes, and only check.sh
 # runs it. It must catch the chain from either end: the layered file, or the header an edit

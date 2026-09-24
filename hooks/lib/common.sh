@@ -194,13 +194,22 @@ BOUNDARY_IMPORT_RE='^[0-9]+:[[:space:]]*((import|export|from|require|include|use
 # layer_hits <file> <layer-prefix> — the file's import-ish lines that name that layer: its
 # full prefix, or its directory name bounded by a path separator, quote or `<` (matches
 # ../infra/x, src/infra/x, <infra/x.h>); in C-family files also a C++20 module import
-# whose first component is the directory name (`import infra.db;`). Prints N:text lines.
+# whose first component is the directory name (`import infra.db;`), and in Python
+# (`.py`, `.pyi`) a dotted module path led by it or by the full prefix in dotted form
+# (`from ..infra.db import x`, `import src.infra`). Prints N:text lines.
 layer_hits() {
-  local f="$1" tprefix="$2" tdir mod="" lines
+  local f="$1" tprefix="$2" tdir mod="" lines dotted
   tdir="$(basename "$tprefix")"
   if is_cfamily "$f"; then
     lines="$(cpp_lines "$f")"
     mod="|^[0-9]+:[[:space:]]*(export[[:space:]]+)?import[[:space:]]+$tdir[.;]"
+  elif [[ "$f" == *.py || "$f" == *.pyi ]]; then
+    lines="$(grep -n '' "$f" 2>/dev/null)"
+    # Module paths are dotted: `from ..infra.db import x`, `import os, infra`, or the full
+    # prefix spelled with dots (`src.infra`). A name only has to end at `.`, space, `,`.
+    dotted="$tdir|$(printf '%s' "${tprefix%/}" | sed 's#/#\\.#g')"
+    mod="|^[0-9]+:[[:space:]]*from[[:space:]]+\.*($dotted)([.[:space:]]|\$)"
+    mod="$mod|^[0-9]+:[[:space:]]*import[[:space:]]+([^#]*,[[:space:]]*)?($dotted)([.,[:space:]]|\$)"
   else
     lines="$(grep -n '' "$f" 2>/dev/null)"
   fi
