@@ -1144,6 +1144,13 @@ check "/validate-phase's escape reads the findings trend, not only the round cou
 # closed by adding prose to the spec the next reviewer audits whole, so findings tracked the
 # spec's size, not the code — measured in a consuming project as rounds whose findings did
 # not fall while the code stayed frozen. Deleting has to lead, and growth has to be visible.
+# The starved reviewer returns as `undecidable` questions an acceptance criterion already
+# answers — it reads the criterion, it cannot run it. Counted, they set a per-reviewer noise
+# floor that fired the iteration-3+ escape against code passing every criterion.
+check "/validate-phase does not count an undecidable a passing criterion settles" \
+  bash -c 'sed -n "/Independent spec review/,/^6\. /p" "$1" | grep -qF "name the settling criterion" &&
+           grep -F -- "- findings: <n>" "$1" | grep -qF "undecidable not settled by a passing criterion"' \
+  _ "$PKG/commands/validate-phase.md"
 check "/validate-phase makes deletion the default spec-side remedy" \
   bash -c 'sed -n "/^On full pass/,/^\*\*Both routes/p" "$1" | grep -qF "Delete before you add" &&
            grep -qF "makes redundant" "$1"' \

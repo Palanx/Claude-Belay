@@ -121,7 +121,19 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
      Out of scope; cite spec line + hunk. This gate FAILS. The reviewer can see the conflict,
      not which side is stale — classify it before routing (see the routing below).
    - **undecidable** — it cannot tell from the spec alone whether a hunk is right, and names
-     what was missing. Spec failure, not code failure: feed it to step 6.
+     what was missing. Spec failure, not code failure: feed it to step 6. **Ask it also to
+     name the settling criterion** — the Acceptance criteria command, copied verbatim, that
+     would decide the question, if one does. It reads the spec, so it can; it cannot run it.
+   An `undecidable` whose named command appears verbatim in the spec's Acceptance criteria and
+   passed in step 1 this round is **settled**: the spec did decide it, mechanically, and the
+   reviewer was starved of the result. It is not a finding and not a closure failure — record
+   it on the review line, never route it. A criterion that failed, or is not in the spec,
+   settles nothing: the finding stands. Without this, a fresh reviewer's handful of questions
+   a passing criterion already answers counts every round, and the iteration-3+ escape fires
+   on reviewer noise against code that passes every criterion.
+   belay-debt: the match is string + exit code, not whether the criterion covers the doubt —
+   a reviewer naming the wrong criterion drops a real finding. Upgrade path: have the escape
+   compare which findings recur across rounds instead of raw counts.
    Anything else — naming, structure, "I'd have done it differently" — is taste: append it to
    notes.md under `For later phases`, never block on it. The gate stays deterministic (P3)
    because the reviewer may only compare the diff to the spec, never to its own preferences.
@@ -142,7 +154,7 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
      the instances its diff touched and the unnamed remainder comes back under whichever
      verdict fits next. Missing enumeration = missing pointer: closure test FAILED, same
      routing as any other. A Goal that quantifies over nothing owes nothing.
-   - An `undecidable` finding from step 5 IS a missing pointer, found from outside your own head: closure test FAILED; record what the reviewer could not resolve in notes.md Deviations.
+   - An `undecidable` finding from step 5 that no passing criterion settled IS a missing pointer, found from outside your own head: closure test FAILED; record what the reviewer could not resolve in notes.md Deviations.
    - If notes.md Deviations reports missing pointers, mark the closure test FAILED even if the code passes — the *next* phase pays for it; the operator must know the cuts are drifting.
 
 ## Mandatory final step (P6)
@@ -154,9 +166,9 @@ Append to `docs/phases/$1/notes.md`:
 - criteria: <n> passed / <n> failed
 - project gates: test <pass|fail|gap>, lint <...>, typecheck <...>
 - boundary sweep: <clean | not swept: no active deny rules | not swept: no file in the set is under a declared layer | violations listed above>
-- independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent>
+- independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent> (settled: <n> — <criterion> … | none)
 - closure test: <pass|fail: reason>
-- findings: <n> — failed criteria + failed project-gate categories + boundary violations + review findings (each contradicts and each undecidable) + closure-test failures no review finding already counts; 0 on a pass
+- findings: <n> — failed criteria + failed project-gate categories + boundary violations + review findings (each contradicts and each undecidable not settled by a passing criterion) + closure-test failures no review finding already counts; 0 on a pass
 - spec size: <bytes, `wc -c < docs/phases/$1/spec.md`> (<+n | -n> since the previous validation | first)
 - upstream: <none | <package file(s)> — /belay-feedback recommended>
 - not-ours: <none | <path(s)> subtracted>

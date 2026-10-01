@@ -541,7 +541,8 @@ plugin, adapted to run inside gates rather than as advice:
   knows what you meant cannot see that the spec never said it. It returns two verdicts:
   *contradicts* (a conflict; the running session decides which side is stale — code back to
   `/implement-phase`, spec amended like an *undecidable*) and *undecidable* (spec bug, the
-  closure test fails). Taste is not a verdict; it goes to notes, never blocks, so the gate
+  closure test fails). An *undecidable* that the reviewer pins to an acceptance criterion
+  which passed that round is *settled* and does not count. Taste is not a verdict; it goes to notes, never blocks, so the gate
   stays deterministic (P3).
 
 **Read this next:** [`docs/worked-example.md`](docs/worked-example.md) — one non-trivial
