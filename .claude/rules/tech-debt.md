@@ -11,7 +11,7 @@ paths:
 
 # Tech debt
 
-## Phase-workflow fixes shipped without a live run (reviewed 2026-09-23)
+## Phase-workflow fixes shipped without a live run (reviewed 2026-10-01)
 
 Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/plan-feature.md`,
 `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`
@@ -30,6 +30,15 @@ and `- spec size:` (`fd81d40`, `471dda6`). Nothing breaks today because every re
 behaviour sits on a branch that a run passing in one round, with nothing to contradict, never
 reaches. The risk is the first phase that reaches one of them.
 
+Later phases on `2c25f10` confirmed two more. Reviewer conflicts were tagged
+`code-side` or `spec-side` with evidence and routed accordingly, and a spec-side one was
+closed by deleting sentences before adding pointers (`f449dd2`, `471dda6`). Rounds that
+failed only on spec-bound routes wrote `returned to spec`, and a mixed round wrote
+`returned to implementation` (`9a61992`). One of those phases reached a third round twice.
+Both times its counts did not fall, so the escape fired and the count reset at the escape
+verdict, as written. That is the complement of the convergence cases below, not the cases
+themselves.
+
 Fix: observe each case below in a phase that produces it for its own reasons, and send
 anything that diverges back through `/belay-feedback`. Never stage one in a consumer: an
 edit made to test belay lands in that project's history for no reason of its own, and a
@@ -41,16 +50,9 @@ it works.
 - Convergence (`fd81d40`): at iteration 3+, findings that fall every round do not escape,
   and the verdict reads `escape not taken: converging …`. Needs a phase that reaches a third
   round.
-- `contradicts` routing (`f449dd2`, `471dda6`): a finding tagged `(code-side|spec-side)`
-  with evidence, and a spec-side finding closed by deleting before adding. Needs a reviewer
-  conflict, and the spec-side branch needs one where the spec is the stale side.
 - `not-ours` (`1502fdf`): the declared paths leave the reviewer's file set and the record
   names them. Needs the operator to have edited a project-owned file (`CLAUDE.md`, an ADR)
   while the phase is open, for that project's own reasons.
-- Spec-bound verdict (`9a61992`): a round whose every failure routes to the spec writes
-  `verdict: returned to spec` and hands back a spec amendment, not `/implement-phase`.
-  Needs a phase that fails only on the closure test, an `undecidable`, or a spec-side
-  `contradicts`.
 - Spec-bound convergence (`9a61992`): at iteration 3+, a spec-bound round whose findings
   fall every round writes `returned to spec (escape not taken: converging …)`. Needs a
   phase that reaches a third round on spec-side failures.
