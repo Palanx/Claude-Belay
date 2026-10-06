@@ -514,7 +514,7 @@ not proceed to real work.
 | `/plan-feature <description>` | Feature request → rows in the phase index. Converges on the scope edge and non-goals first, and records them. Stops if the feature contradicts a recorded ADR. Also appends a `fix` row for a defect found in a `done` phase's code, leaving that row untouched | `docs/phases/PHASES.md` (feature section: blurb + rows, status `pending`) |
 | `/expand-phase <phase-id>` | One index row → a full spec, written *just in time*, absorbing what the dependency phases revealed | `docs/phases/<id>/spec.md`; status → `expanded` |
 | `/implement-phase <phase-id> [--implemented]` | Do exactly that phase against its spec, inside the hooks. `--implemented`: the operator wrote the code by hand — skip implementation, interview for the record, so the phase can still be validated | the source files in the spec's Plan (none with `--implemented`), the Plan's step-status text in `spec.md` when the project keeps one, `docs/phases/<id>/notes.md`; status → `in-progress` |
-| `/validate-phase <phase-id>` | Run the spec's acceptance criteria, the project-wide gates, an independent review by a subagent that sees only the spec and the diff, and the closure test. A `- not-ours: <path>` line in `notes.md` keeps an operator's mid-phase edit out of the phase's file set | validation record appended to `notes.md`; status → `done` **only** on a clean pass |
+| `/validate-phase <phase-id>` | Run the spec's acceptance criteria, the project-wide gates, an independent review by a subagent that sees only the spec, the diff and the recorded Deviations, and the closure test. A `- not-ours: <path>` line in `notes.md` keeps an operator's mid-phase edit out of the phase's file set | validation record appended to `notes.md`; status → `done` **only** on a clean pass |
 | `/refresh-index` | Rebuild the repo index, re-detect the toolchain, report doc/code drift | `docs/index/`, `toolchain.json` |
 | `/security-check [path]` | Advisory security review — the reasoning companion to the enforced commit gate | `docs/security/review-<date>.md` |
 | `/belay-feedback <what misbehaved>` | Send a gate/command bug back to this package with verbatim repro data | `~/.claude-belay/feedback/<project>.md` |
@@ -537,8 +537,9 @@ plugin, adapted to run inside gates rather than as advice:
   conclusion that stays in the session is a conclusion the next session re-derives or gets
   wrong (P6).
 - **Review by an agent that did not do the work.** `/validate-phase` dispatches one subagent
-  with the spec and the diff and nothing else — deliberately starved, because a reviewer who
-  knows what you meant cannot see that the spec never said it. It returns two verdicts:
+  with the spec, the diff and the phase's recorded Deviations, and nothing else — deliberately
+  starved, because a reviewer who knows what you meant cannot see that the spec never said it.
+  It sees what was decided, never the reasoning behind it. It returns two verdicts:
   *contradicts* (a conflict; the running session decides which side is stale — code back to
   `/implement-phase`, spec amended like an *undecidable*) and *undecidable* (spec bug, the
   closure test fails). An *undecidable* that the reviewer pins to an acceptance criterion

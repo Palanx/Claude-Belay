@@ -102,19 +102,24 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    `scripts/build-index.sh` so the next phase plans against reality.
 
 5. **Independent spec review.** Only once 1–4 are clean — never review code the cheap gates
-   already reject. Dispatch ONE subagent with exactly three inputs: `CLAUDE.md`
-   (`CLAUDE.local.md` in corporate mode), `docs/phases/$1/spec.md`, and the phase's diff
+   already reject. Dispatch ONE subagent with exactly four inputs: `CLAUDE.md`
+   (`CLAUDE.local.md` in corporate mode), `docs/phases/$1/spec.md`, the phase's diff
    restricted to step 3's file set (defined above — that definition is what makes this work
-   on code the operator already committed). Nothing else —
-   not `notes.md`, not the dependency notes, not your summary. **Say in the prompt which paths
-   you withheld** — `notes.md` always, plus whatever the manifest and `not-ours` subtractions removed — and
+   on code the operator already committed), and the `## Deviations` section of
+   `docs/phases/$1/notes.md`, copied verbatim. Nothing else —
+   not the rest of `notes.md`, not the dependency notes, not your summary. **Say in the prompt which paths
+   you withheld** — every `notes.md` section but Deviations, always, plus whatever the manifest and `not-ours` subtractions removed — and
    that their absence is not a finding. The file set contains `notes.md` by construction (both
    this command and `/implement-phase` write it), so withholding it silently leaves the
    reviewer holding a spec whose Plan says the phase writes that file and a diff that does
    not: it can only report `contradicts`, a verdict no code change can clear, on every spec
    the shipped template produces. Naming what is withheld costs the starvation nothing — the
    reviewer still cannot read those files, it just stops reading their absence as evidence.
-   Starve it deliberately: the
+   Deviations is the operator's record of what was decided against the spec, so it is what
+   authorises a spec amendment: the reviewer judges each hunk against the spec as amended and
+   the decisions listed there. It sees what was decided, never why the session thought so.
+   That is why every other section stays withheld, and why a Deviations entry is one decision,
+   not an argument. Starve it deliberately: the
    instinct to be helpful destroys the property under test, because a reviewer who knows what
    you meant cannot see that the spec never said it. Ask for two verdicts only:
    - **contradicts** — a hunk conflicts with the spec's Goal, Plan, Acceptance criteria or
@@ -138,7 +143,7 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    notes.md under `For later phases`, never block on it. The gate stays deterministic (P3)
    because the reviewer may only compare the diff to the spec, never to its own preferences.
    **No subagent available** (Cursor's `.cursor/commands/`, or any client without Task-style
-   dispatch): have the operator run the same three-input review in a fresh session and paste
+   dispatch): have the operator run the same four-input review in a fresh session and paste
    the verdict, or record `skipped: no subagent` below. Skipping does not block `done`, but
    the closure test is then self-declared again — that is stated, never silent (P7).
 

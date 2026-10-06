@@ -19,9 +19,12 @@ Written for a reader who saw none of the work happen.}}
 
 ## Deviations
 
-<!-- Every place reality diverged from spec.md: what the spec said, what was
-     done instead, why. Also: any file read/changed that the spec's pointers
-     missed (that's a closure-test gap — name the missing pointer). -->
+<!-- Every place reality diverged from spec.md, one line each, written as a
+     decision: "spec said X; Y instead, because Z". /validate-phase's
+     reviewer reads this section and no other, so it is what authorises a
+     spec amendment — a decision, not an argument. Also: any file
+     read/changed that the spec's pointers missed (that's a closure-test gap
+     — name the missing pointer). -->
 
 - {{deviation}} — or `None`
 

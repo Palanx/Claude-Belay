@@ -16,7 +16,7 @@
      newest task first" is one claim /validate-phase's reviewer audits;
      "…because the created_at index makes that order free" is a second, more
      specific one, and it is the one that goes false first. Reasoning worth keeping goes in
-     notes.md, which the reviewer never reads — a spec that argues for itself
+     notes.md outside Deviations, which the reviewer never reads — a spec that argues for itself
      grows the surface every round audits. -->
 
 ## Goal

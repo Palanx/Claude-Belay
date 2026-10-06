@@ -1080,6 +1080,14 @@ check "both spec-amending routes owe reconciliation" \
 check "/validate-phase tells the reviewer which paths were withheld" \
   bash -c 'grep -qF "Say in the prompt which paths" "$1" && grep -qF "absence is not a finding" "$1"' \
   _ "$PKG/commands/validate-phase.md"
+# The spec header authorises an amendment only with a Deviations entry, and step 5 withheld all of
+# notes.md: the reviewer asked for proof it could never see, no criterion settled it, and it counted.
+# The authorisation is a fact three files share, so all three carry it.
+check "/validate-phase's reviewer reads the Deviations that authorise an amendment" \
+  bash -c 'sed -n "/Independent spec review/,/^6\. /p" "$1" | grep -qF "four inputs" &&
+           grep -qF "outside Deviations, which the reviewer never reads" "$2" &&
+           grep -qF "reviewer reads this section" "$3"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/templates/spec.md" "$PKG/templates/notes.md"
 # `- base: working tree` is true while the work is uncommitted and expires the moment it is
 # committed, which is ordinary. The default file set is then empty on a clean tree, and the
 # sweep, the review and the closure test all report pass having examined nothing.
