@@ -1088,6 +1088,13 @@ check "/validate-phase's reviewer reads the Deviations that authorise an amendme
            grep -qF "outside Deviations, which the reviewer never reads" "$2" &&
            grep -qF "reviewer reads this section" "$3"' \
   _ "$PKG/commands/validate-phase.md" "$PKG/templates/spec.md" "$PKG/templates/notes.md"
+# Of one phase's review findings across nine rounds, three were defects and the rest were "true in
+# the tree, but the spec does not state it". Counted alike, a clean round needed the spec to restate
+# its diff. The non-blocking class is recorded on the review line, never routed.
+check "/validate-phase records an unstated hunk without counting it" \
+  bash -c 'sed -n "/Independent spec review/,/^6\. /p" "$1" | grep -qF "**unstated**" &&
+           grep -E "^- independent review:" "$1" | grep -qF "(unstated: <n>"' \
+  _ "$PKG/commands/validate-phase.md"
 # `- base: working tree` is true while the work is uncommitted and expires the moment it is
 # committed, which is ordinary. The default file set is then empty on a clean tree, and the
 # sweep, the review and the closure test all report pass having examined nothing.

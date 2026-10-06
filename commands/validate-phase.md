@@ -121,14 +121,19 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    That is why every other section stays withheld, and why a Deviations entry is one decision,
    not an argument. Starve it deliberately: the
    instinct to be helpful destroys the property under test, because a reviewer who knows what
-   you meant cannot see that the spec never said it. Ask for two verdicts only:
+   you meant cannot see that the spec never said it. Ask for three verdicts only:
    - **contradicts** — a hunk conflicts with the spec's Goal, Plan, Acceptance criteria or
      Out of scope; cite spec line + hunk. This gate FAILS. The reviewer can see the conflict,
      not which side is stale — classify it before routing (see the routing below).
-   - **undecidable** — it cannot tell from the spec alone whether a hunk is right, and names
-     what was missing. Spec failure, not code failure: feed it to step 6. **Ask it also to
+   - **undecidable** — it can name how a hunk could be *wrong* against the Goal, Plan,
+     Acceptance criteria or Out of scope, and the spec alone does not settle whether it is; it
+     names what was missing. Spec failure, not code failure: feed it to step 6. **Ask it also to
      name the settling criterion** — the Acceptance criteria command, copied verbatim, that
      would decide the question, if one does. It reads the spec, so it can; it cannot run it.
+   - **unstated** — the spec does not state what a hunk does, and nothing in the spec makes it
+     doubtful. Not a finding: it is not counted, not routed and never fails the closure test.
+     Record it on the review line and nowhere else. Closing it by adding the sentence is how a
+     spec ends up restating its diff, the spec-from-code `/expand-phase` forbids.
    An `undecidable` whose named command appears verbatim in the spec's Acceptance criteria and
    passed in step 1 this round is **settled**: the spec did decide it, mechanically, and the
    reviewer was starved of the result. It is not a finding and not a closure failure — record
@@ -140,7 +145,8 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    a reviewer naming the wrong criterion drops a real finding. Upgrade path: have the escape
    compare which findings recur across rounds instead of raw counts.
    Anything else — naming, structure, "I'd have done it differently" — is taste: append it to
-   notes.md under `For later phases`, never block on it. The gate stays deterministic (P3)
+   notes.md under `For later phases`, never block on it. An `unstated` is not taste and does
+   not go there: it is a fact about the spec, recorded once on the review line. The gate stays deterministic (P3)
    because the reviewer may only compare the diff to the spec, never to its own preferences.
    **No subagent available** (Cursor's `.cursor/commands/`, or any client without Task-style
    dispatch): have the operator run the same four-input review in a fresh session and paste
@@ -159,7 +165,7 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
      the instances its diff touched and the unnamed remainder comes back under whichever
      verdict fits next. Missing enumeration = missing pointer: closure test FAILED, same
      routing as any other. A Goal that quantifies over nothing owes nothing.
-   - An `undecidable` finding from step 5 that no passing criterion settled IS a missing pointer, found from outside your own head: closure test FAILED; record what the reviewer could not resolve in notes.md Deviations.
+   - An `undecidable` finding from step 5 that no passing criterion settled IS a missing pointer, found from outside your own head: closure test FAILED; record what the reviewer could not resolve in notes.md Deviations. An `unstated` is not one.
    - If notes.md Deviations reports missing pointers, mark the closure test FAILED even if the code passes — the *next* phase pays for it; the operator must know the cuts are drifting.
 
 ## Mandatory final step (P6)
@@ -171,7 +177,7 @@ Append to `docs/phases/$1/notes.md`:
 - criteria: <n> passed / <n> failed
 - project gates: test <pass|fail|gap>, lint <...>, typecheck <...>
 - boundary sweep: <clean | not swept: no active deny rules | not swept: no file in the set is under a declared layer | violations listed above>
-- independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent> (settled: <n> — <criterion> … | none)
+- independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent> (settled: <n> — <criterion> … | none) (unstated: <n> — <what> … | none)
 - closure test: <pass|fail: reason>
 - findings: <n> — failed criteria + failed project-gate categories + boundary violations + review findings (each contradicts and each undecidable not settled by a passing criterion) + closure-test failures no review finding already counts; 0 on a pass
 - spec size: <bytes, `wc -c < docs/phases/$1/spec.md`> (<+n | -n> since the previous validation | first)

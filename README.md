@@ -539,10 +539,12 @@ plugin, adapted to run inside gates rather than as advice:
 - **Review by an agent that did not do the work.** `/validate-phase` dispatches one subagent
   with the spec, the diff and the phase's recorded Deviations, and nothing else — deliberately
   starved, because a reviewer who knows what you meant cannot see that the spec never said it.
-  It sees what was decided, never the reasoning behind it. It returns two verdicts:
+  It sees what was decided, never the reasoning behind it. It returns three verdicts:
   *contradicts* (a conflict; the running session decides which side is stale — code back to
-  `/implement-phase`, spec amended like an *undecidable*) and *undecidable* (spec bug, the
-  closure test fails). An *undecidable* that the reviewer pins to an acceptance criterion
+  `/implement-phase`, spec amended like an *undecidable*), *undecidable* (the reviewer can say
+  how a hunk could be wrong and the spec does not settle it: spec bug, the closure test fails)
+  and *unstated* (the spec merely omits what a hunk does: recorded, never counted, never
+  blocks). An *undecidable* that the reviewer pins to an acceptance criterion
   which passed that round is *settled* and does not count. Taste is not a verdict; it goes to notes, never blocks, so the gate
   stays deterministic (P3).
 
