@@ -1,20 +1,21 @@
 ---
-description: Run a phase's acceptance gates and the closure test; flip status to done only on a clean pass
+description: Run a phase's acceptance gates and the closure test; flip status to done only on a clean pass or an operator close at the round cap
 argument-hint: <phase-id>
 ---
 
 # /validate-phase
 
 **Purpose:** the deterministic gate at the end of a phase (P3). Generation may be
-wrong; this step is where wrong is caught. Only a clean pass may set `done` — a phase
-marked `done` is load-bearing for every phase that depends on it.
+wrong; this step is where wrong is caught. Only a clean pass, or an operator's explicit
+close at the round cap with every code gate clean, may set `done` — a phase marked `done`
+is load-bearing for every phase that depends on it.
 
 **Arguments:** `$1` — the phase id. Required.
 
 **Preconditions:** `docs/phases/$1/spec.md` and `notes.md` exist; PHASES.md status is `in-progress`. Missing notes.md means `/implement-phase` skipped its mandatory final step — go back and write it first; validation validates the record as well as the code.
 
 **Reads:** `docs/phases/$1/spec.md` + `notes.md`, `.claude/workflow/toolchain.json` (via `scripts/check.sh`), `docs/phases/PHASES.md`.
-**Writes:** `docs/phases/$1/notes.md` (validation record appended), `docs/phases/PHASES.md` (status → `done` on pass only; → `pending` when the iteration-3+ escape below fires, which is the one time this command moves a phase backwards).
+**Writes:** `docs/phases/$1/notes.md` (validation record appended), `docs/phases/PHASES.md` (status → `done` on a pass, or on an operator close at the round cap; → `pending` when the iteration-3+ escape below fires or the operator chooses re-expansion at the round cap, the only times this command moves a phase backwards).
 
 **The phase's file set and diff** — defined once here, used by steps 3, 5 and 6. Default:
 the working tree — `git status --porcelain` and `git diff` (run `git add -N` first so files
@@ -142,8 +143,8 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    a passing criterion already answers counts every round, and the iteration-3+ escape fires
    on reviewer noise against code that passes every criterion.
    belay-debt: the match is string + exit code, not whether the criterion covers the doubt —
-   a reviewer naming the wrong criterion drops a real finding. Upgrade path: have the escape
-   compare which findings recur across rounds instead of raw counts.
+   a reviewer naming the wrong criterion drops a real finding. Upgrade path: confirm that the
+   named criterion exercises the hunk in question before counting the doubt settled.
    Anything else — naming, structure, "I'd have done it differently" — is taste: append it to
    notes.md under `For later phases`, never block on it. An `unstated` is not taste and does
    not go there: it is a fact about the spec, recorded once on the review line. The gate stays deterministic (P3)
@@ -180,10 +181,11 @@ Append to `docs/phases/$1/notes.md`:
 - independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent> (settled: <n> — <criterion> … | none) (unstated: <n> — <what> … | none)
 - closure test: <pass|fail: reason>
 - findings: <n> — failed criteria + failed project-gate categories + boundary violations + review findings (each contradicts and each undecidable not settled by a passing criterion) + closure-test failures no review finding already counts; 0 on a pass
+- finding keys: <§<spec section> <file>; … | none> — one per review finding and closure-test failure counted above
 - spec size: <bytes, `wc -c < docs/phases/$1/spec.md`> (<+n | -n> since the previous validation | first)
 - upstream: <none | <package file(s)> — /belay-feedback recommended>
 - not-ours: <none | <path(s)> subtracted>
-- verdict: <done | returned to implementation | returned to spec | <either returned-to value> (escape not taken: converging <n → … → n>) | escaped to /expand-phase: spec re-expanded>
+- verdict: <done | returned to implementation | returned to spec | escaped to /expand-phase: <recurring key | operator chose at round cap> | escaped to /plan-feature: operator chose re-cut at round cap | done (operator-closed at round cap: <n> open) | at round cap: awaiting operator>
 ```
 
 On full pass: PHASES.md status → `done`. On any failure: status stays `in-progress`;
@@ -235,7 +237,7 @@ of it depends on any of this being committed.
 
 ## Failure modes
 
-- **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3). **From iteration 3 against the current spec** — on any failed round, `returned to spec` ones too, since the count below already spans them — count the `## Validation` sections in notes.md that follow the most recent `escaped to /expand-phase` verdict, or all of them if there is none, this round's included — read their `- findings:` lines in order. If every count is strictly below the one before it, the loop is converging: do not escape. Leave the status `in-progress`, append `(escape not taken: converging <n → … → n>)` to the round's `returned to …` verdict, and tell the operator that re-expanding anyway is theirs to decide. A strictly falling count of whole numbers reaches zero within as many rounds as its first value, so this cannot iterate forever. Otherwise — any count equal to or above the one before it, or any counted round with no `- findings:` line, as every record written before that line existed has none — the spec is wrong: stop and say so, and route it. A wrong *spec* is re-expanded: **set the status to `pending` yourself** and hand the operator `/expand-phase $1`. Do not leave that flip to them — `/expand-phase` refuses any other status, so a route nobody performs is a route that ends in a bounce, and the phase iterates a sixth time instead (P9). Say in the report that you moved it. A wrong *cut* is re-planned (`/plan-feature`, which supersedes the row). The count resets at that verdict because the escape's own output is a new spec: a lifetime count would put every phase that ever escaped permanently in escape territory, demanding a re-expansion of a spec written one round ago that is converging. The trend only ever relaxes the escape, never tightens it: whatever fired on the round count alone still fires, except a run whose findings fall every round. That run is not a spec nobody believes, and re-expanding it swaps a converging spec for new claims the next round has to audit. Iterating a fourth time against a spec nobody believes is the failure this escape exists to stop.
+- **Gate failure** → not an exception, the designed loop: hand the failing command + output to `/implement-phase $1`, which fixes and returns here. Expected convergence is 1–2 iterations because failures are machine-detectable (P3). **From iteration 3 against the current spec**, on any failed round — `returned to spec` ones too — count the `## Validation` sections in notes.md that follow the most recent `escaped to /expand-phase` verdict, or all of them if there is none, this round's included, and read their `- finding keys:` lines. Rounds 1 and 2 never escape: a spec fix that takes two tries is the loop working. **A key that recurs** — one of this round's keys appears verbatim on an earlier counted round's line — means the spec is not closing its doubts: the same one came back after a fix meant to close it. Stop and say so. A wrong *spec* is re-expanded: **set the status to `pending` yourself**, write `escaped to /expand-phase: <the recurring key>`, and hand the operator `/expand-phase $1`. Do not leave that flip to them — `/expand-phase` refuses any other status, so a route nobody performs is a route that ends in a bounce, and the phase iterates a sixth time instead (P9). Say in the report that you moved it. belay-debt: a key is a spec section plus a file, so two different findings on the same pair read as recurrence and escape a round early, and one finding that moves files reads as new. Upgrade path: key on the spec sentence the finding cites, once the review line records it. **No key recurs** — or a counted round has no `- finding keys:` line, as every record written before that line existed has none — and this is the **round cap**: fresh reviewers each sample a different true gap, so counts oscillate without the loop going anywhere, and a fourth automatic round is not the answer. Stop and hand the operator the choice; never take it for them. (a) **Close with the open findings** — offered only if steps 1–4 passed this round and no code-side `contradicts` is open: write each open finding as a Deviations entry (`operator closed with open finding: <key> — <what>`), set the status to `done`, verdict `done (operator-closed at round cap: <n> open)`. Code that fails a gate is never closed this way; for it only (b) and (c) exist. (b) **Re-expand** — status → `pending` yourself, as above, verdict `escaped to /expand-phase: operator chose at round cap`. (c) **Re-cut** — a wrong *cut* is re-planned: verdict `escaped to /plan-feature: operator chose re-cut at round cap`, hand over `/plan-feature`, which supersedes the row. No answer (a non-interactive session) → status stays `in-progress`, verdict `at round cap: awaiting operator`, and the next run offers the same choice. The count resets at an `escaped to /expand-phase` verdict because the escape's own output is a new spec: a lifetime count would put every phase that ever escaped permanently at the cap, demanding a decision about a spec written one round ago.
 - **The code was written by a human** (`/implement-phase --implemented`) → nothing here changes: every gate above judges the code and the record, not the author. If anything the independent review is *stronger*, because the reviewer cannot be told what the human meant — but it is also the first gate this code meets at all, since the edit-time hooks only see edits made through the agent. Read step 2's and step 3's output as new information, not as a re-check.
 - **Review verdicts split by consequence** — `contradicts` goes where its classification says: code-side into the loop above, spec-side to `spec.md` like an `undecidable`; `undecidable` is a spec bug, so the fix is in spec.md — deleting the sentence it could not decide before adding the pointer it lacked (with the Deviations entry that any spec amendment requires), never a code change to satisfy the reviewer.
 - **Everything passes but the closure test** → still a failure: status stays `in-progress`. The code may well be right; the *record* isn't, and the next phase is what pays for that. It is also the cheapest failure here to clear, so clear it rather than arguing with it: name the stray file in the spec's Plan, or add the pointer the reviewer could not resolve, then write the Deviations entry that any spec amendment requires and re-run. A phase marked `done` asserts that a cold session can rebuild its context from the spec — that is exactly what the closure test measures, so `done` on a failed closure test would make the word mean nothing.
@@ -244,3 +246,4 @@ of it depends on any of this being committed.
 
 Pass → `/expand-phase <next>` (the next pending phase whose dependencies are all done).
 Fail (`returned to implementation`) → `/implement-phase $1` with this validation report — unless every failure routes to the spec (closure test, `undecidable`, spec-side `contradicts`): then (`returned to spec`) amend `spec.md` and re-run `/validate-phase $1`.
+Round cap (iteration 3+, no recurring key) → the operator's choice, never yours: close (`done (operator-closed at round cap: <n> open)`, only with steps 1–4 clean), re-expand (`/expand-phase $1`), or re-cut (`/plan-feature`). See **Gate failure** above.

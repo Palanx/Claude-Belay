@@ -1147,13 +1147,20 @@ check "/plan-feature dispatches a done phase's fix before planning a feature" \
   bash -c 'sed -n "/^\*\*Preconditions:\*\*/,/^\*\*Reads:\*\*/p" "$1" |
            grep -qF "Scheduling a fix to a phase already done"' \
   _ "$PKG/commands/plan-feature.md"
-# The iteration-3+ escape counted rounds and nothing else, so a spec whose findings fell
-# every round was discarded on the same terms as one that never converged, and each
-# re-expansion wrote new claims for the next round to audit. The record now carries a
-# comparable count, and the escape reads its trend.
-check "/validate-phase's escape reads the findings trend, not only the round count" \
-  bash -c 'sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- findings: <n>" &&
-           grep -F "**Gate failure**" "$1" | grep -qF "strictly below"' \
+# The escape compared raw counts, and fresh reviewers each sample a new gap, so counts oscillated
+# (1 -> 2 -> 1) with no finding ever recurring, and the escape fired on noise. Recurrence of a key
+# is what non-convergence looks like; without it, the third round hands the choice to the operator.
+check "/validate-phase escapes on a recurring finding, and caps rounds with an operator choice" \
+  bash -c 'sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- finding keys:" &&
+           grep -F "**Gate failure**" "$1" | grep -qF "recur" &&
+           grep -E "^- verdict:" "$1" | grep -qF "operator-closed at round cap" &&
+           ! grep -qF "strictly below" "$1"' \
+  _ "$PKG/commands/validate-phase.md"
+# Closing with open findings is the operator's call, never one the command takes for code that
+# still fails a gate: done stays load-bearing for every dependent phase.
+check "/validate-phase offers an operator close only with every code gate clean" \
+  bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "steps 1–4" &&
+           sed -n "/^\*\*Purpose:/,/^$/p" "$1" | grep -qF "round cap"' \
   _ "$PKG/commands/validate-phase.md"
 # The validation loop had a growth term and no decay term: every spec-side finding was
 # closed by adding prose to the spec the next reviewer audits whole, so findings tracked the
@@ -1224,11 +1231,6 @@ check "/validate-phase names a verdict for every Handoff destination" \
   bash -c 'v="$(grep "^- verdict:" "$1" | grep -oE "returned to [a-z]+" | sort -u)"
            h="$(sed -n "/^## Handoff/,\$p" "$1" | grep -oE "returned to [a-z]+" | sort -u)"
            [ -n "$h" ] && [ "$v" = "$h" ]' \
-  _ "$PKG/commands/validate-phase.md"
-# The convergence count spans every round, spec-bound ones included, so the suffix it
-# prescribes must attach to whichever returned-to verdict the round earned.
-check "/validate-phase does not tie the converging suffix to one destination" \
-  bash -c '! grep -qF "returned to implementation (escape" "$1"' \
   _ "$PKG/commands/validate-phase.md"
 # The manifest is untracked in a normal install and absent from one old enough to predate
 # it. Without a clause for that, the grep finds nothing, every upstream cause reads as
