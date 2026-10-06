@@ -18,8 +18,9 @@ Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/pl
 `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`,
 `docs/adr/0007-*.md`
 
-Eleven commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
-`da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`. They close every open entry in
+Twelve commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+`da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
+`c4b6c01`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -40,6 +41,15 @@ failed only on spec-bound routes wrote `returned to spec`, and a mixed round wro
 Both times its counts did not fall, so the escape fired and the count reset at the escape
 verdict, as written.
 
+A later phase on `c4b6c01` confirmed three more. The reviewer used the Deviations as evidence
+and never questioned whether an amendment was authorised (`cdcf9ff`). It returned `unstated`
+items (7 and 10), which the review line carried and `- findings:` did not count (`e71f341`).
+In round 3 a key repeated from round 2, and the escape set the status to `pending` itself
+(`f87994c`). The two findings behind that key differed in detail but shared a cause, so the
+escape was right. Even so, the coarse key had already collided in round 2, where it had no
+effect. That `belay-debt:` in `/validate-phase` is real; take its upgrade path once a
+collision joins two findings with no shared cause.
+
 Fix: observe each case below in a phase that produces it for its own reasons, and send
 anything that diverges back through `/belay-feedback`. Never stage one in a consumer: an
 edit made to test belay lands in that project's history for no reason of its own, and a
@@ -51,12 +61,9 @@ it works.
 - `not-ours` (`1502fdf`): the declared paths leave the reviewer's file set and the record
   names them. Needs the operator to have edited a project-owned file (`CLAUDE.md`, an ADR)
   while the phase is open, for that project's own reasons.
-- Deviations to the reviewer (`cdcf9ff`): a spec amendment with its Deviations entry does
-  not come back as `undecidable`. Needs a phase that amends its spec during validation.
-- `unstated` (`e71f341`): the review line carries it and `- findings:` does not count it.
-  Needs a review that meets a hunk the spec merely omits.
-- Recurrence and round cap (`f87994c`): a recurring key escapes with `escaped to
-  /expand-phase: <key>`; without one, round 3 stops and offers close / re-expand / re-cut,
-  close only with steps 1–4 clean. Needs a phase that reaches a third round.
+- Round cap (`f87994c`, `c4b6c01`): with no recurring key, round 3 stops and offers
+  close / re-expand / re-cut, close only with steps 1–4 clean, and names
+  `commands/validate-phase.md` on the `upstream:` line. Needs a phase that reaches a third
+  round with no key repeated.
 
 Delete each case once it has been observed, and the entry with the last one.
