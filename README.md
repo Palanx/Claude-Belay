@@ -691,6 +691,8 @@ project dies with that session unless it travels back here. The return channel:
    `/validate-phase` also names an upstream cause on its own report line when the
    misbehaving file is one the install manifest lists — the phase still closes on its
    workaround; the entry is what stops the next project rediscovering it.
+   It does the same when a phase reaches the round cap with no finding recurring: that
+   pattern is evidence about the review itself, not about the project.
 2. `install.sh` stamps `.claude/workflow/belay-version` into every target, so each entry
    names the exact package commit it observed.
 3. Opening a Claude session in *this* repo lists all open entries automatically

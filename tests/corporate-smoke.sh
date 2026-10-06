@@ -1162,6 +1162,12 @@ check "/validate-phase offers an operator close only with every code gate clean"
   bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "steps 1–4" &&
            sed -n "/^\*\*Purpose:/,/^$/p" "$1" | grep -qF "round cap"' \
   _ "$PKG/commands/validate-phase.md"
+# A cap reached with no recurring finding is the one signal that the review direction itself is
+# wrong, and it surfaced only to the consumer's operator. Routing it to /belay-feedback is what
+# lets the package decide on evidence whether the review needs to run over finite sets.
+check "/validate-phase reports a recurrence-free round cap upstream" \
+  bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "a cap reached without recurrence is also a signal about this package"' \
+  _ "$PKG/commands/validate-phase.md"
 # The validation loop had a growth term and no decay term: every spec-side finding was
 # closed by adding prose to the spec the next reviewer audits whole, so findings tracked the
 # spec's size, not the code — measured in a consuming project as rounds whose findings did
