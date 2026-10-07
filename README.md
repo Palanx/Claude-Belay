@@ -523,8 +523,9 @@ The loop: `/plan-feature` **once per feature**, then `/expand-phase → /impleme
 /validate-phase` **per phase** until every row is `done`. A failed validation is not an
 exception — it hands the failing command's output back to `/implement-phase`, which fixes
 and returns. From the third round against one spec, a finding that comes back re-expands
-the spec; if none comes back, the loop stops and the operator chooses: close (only with every
-code gate clean), re-expand, or re-cut. Each command's own file (`.claude/commands/*.md`) states its preconditions,
+the spec once per phase; if none comes back, or one comes back after that re-expansion, the
+loop stops and the operator chooses: close (only with every code gate clean), re-expand, or
+re-cut. Each command's own file (`.claude/commands/*.md`) states its preconditions,
 what it reads, and its failure modes.
 
 Three of the behaviours above are borrowed from the [Superpowers](https://github.com/obra/superpowers)
@@ -691,8 +692,9 @@ project dies with that session unless it travels back here. The return channel:
    `/validate-phase` also names an upstream cause on its own report line when the
    misbehaving file is one the install manifest lists — the phase still closes on its
    workaround; the entry is what stops the next project rediscovering it.
-   It does the same when a phase reaches the round cap with no finding recurring: that
-   pattern is evidence about the review itself, not about the project.
+   It does the same when a phase reaches the round cap — no finding recurring, or one
+   recurring after a re-expansion: that pattern is evidence about the review itself, not
+   about the project.
 2. `install.sh` stamps `.claude/workflow/belay-version` into every target, so each entry
    names the exact package commit it observed.
 3. Opening a Claude session in *this* repo lists all open entries automatically
