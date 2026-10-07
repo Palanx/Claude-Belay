@@ -5,6 +5,7 @@ paths:
   - commands/plan-feature.md
   - templates/spec.md
   - templates/notes.md
+  - commands/expand-phase.md
   - docs/adr/0005-a-defect-in-a-done-phase-gets-a-new-row.md
   - docs/adr/0006-the-validation-loop-deletes-before-it-adds.md
   - docs/adr/0007-the-reviewer-sees-what-was-decided-and-the-loop-ends-on-recurrence.md
@@ -15,12 +16,12 @@ paths:
 ## Phase-workflow fixes shipped without a live run (reviewed 2026-10-01)
 
 Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/plan-feature.md`,
-`templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`, `docs/adr/0006-*.md`,
-`docs/adr/0007-*.md`
+`commands/expand-phase.md`, `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`,
+`docs/adr/0006-*.md`, `docs/adr/0007-*.md`
 
-Twelve commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+Thirteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
-`c4b6c01`. They close every open entry in
+`c4b6c01`, `722caf2`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -65,5 +66,9 @@ it works.
   close / re-expand / re-cut, close only with steps 1–4 clean, and names
   `commands/validate-phase.md` on the `upstream:` line. Needs a phase that reaches a third
   round with no key repeated.
+- Quantified Plan claim (`722caf2`): `/expand-phase`'s closure self-test makes a Plan step that
+  quantifies over an unenumerated set ("every number the doc states has a source") name its
+  members, or cuts it back, before validation sees it. Needs a re-expansion of a spec that
+  carries such a step.
 
 Delete each case once it has been observed, and the entry with the last one.
