@@ -19,9 +19,9 @@ Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/pl
 `commands/expand-phase.md`, `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`,
 `docs/adr/0006-*.md`, `docs/adr/0007-*.md`
 
-Thirteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+Fourteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
-`c4b6c01`, `722caf2`. They close every open entry in
+`c4b6c01`, `722caf2`, `4fafb3c`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -70,5 +70,9 @@ it works.
   quantifies over an unenumerated set ("every number the doc states has a source") name its
   members, or cuts it back, before validation sees it. Needs a re-expansion of a spec that
   carries such a step.
+- Escape cap (`4fafb3c`): in a phase whose `notes.md` already holds an `escaped to
+  /expand-phase` verdict, a recurring key offers close / re-expand / re-cut instead of setting
+  `pending`, and names `commands/validate-phase.md` on the `upstream:` line. Needs a phase whose
+  key recurs again after a re-expansion.
 
 Delete each case once it has been observed, and the entry with the last one.
