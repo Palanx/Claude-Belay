@@ -1207,6 +1207,15 @@ check "the closure test requires a quantified claim to name its set" \
 check "the spec template warns that a quantified Goal owes an enumeration" \
   bash -c 'sed -n "/^## Goal/,/^## Context/p" "$1" | grep -qF "quantifies over a set"' \
   _ "$PKG/templates/spec.md"
+# The rule read "Goal or Acceptance criteria", so a Plan step imposing "every number the doc
+# states has a source" passed expansion and cost one round per unnamed instance, until it
+# escaped twice. A quantified claim owes its set wherever it sits, and expansion is where it is
+# cheapest to close.
+check "a quantified claim owes its set in every spec section, checked at expansion" \
+  bash -c 'sed -n "/Closure test/,/^## Mandatory/p" "$1" | grep -qF "any section of the spec" &&
+           sed -n "/^## Plan/,/^## Acceptance/p" "$2" | grep -qF "owes its set" &&
+           sed -n "/Closure self-test/,/Update status/p" "$3" | grep -qF "quantified claim in any section"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/templates/spec.md" "$PKG/commands/expand-phase.md"
 check "/validate-phase counts iterations against the current spec" \
   bash -c 'grep -qF "against the current spec" "$1" && grep -qF "escaped to /expand-phase\` verdict" "$1"' \
   _ "$PKG/commands/validate-phase.md"

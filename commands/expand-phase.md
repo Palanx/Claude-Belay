@@ -68,7 +68,11 @@ into the plan: the spec is written *after* the phases it depends on have reveale
    executing it by hand rather than an agent (`/implement-phase --implemented` is a
    supported route, so this is not hypothetical). Every file it tells you to touch:
    reachable from a Context pointer? Every term: defined in the spec or in a pointed-to
-   file? Every step: checkable without reading ahead to the Acceptance criteria? Fix the
+   file? Every step: checkable without reading ahead to the Acceptance criteria? Every
+   quantified claim in any section — "every X", "each Y", "all N of Z" — names its
+   members? An open one ("every claim the operator guide makes is sourced") is cut to a closed
+   list or deleted here: `/validate-phase`'s closure test fails it, and its reviewer
+   returns one new instance per round until the set is written. Fix the
    spec until yes — a pointer you add now costs one line; the same knowledge missing at
    implementation time costs a blind repo search.
 

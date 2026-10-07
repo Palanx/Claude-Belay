@@ -53,7 +53,10 @@ exists/works after this phase that didn't before.}}
      boundary with a passing check is a point where the repo is left working —
      which is what lets a human stop between any two steps, and what makes an
      agent converge in small loops (P3) instead of batching failure to the
-     end. If a step has no check, it is two steps or it is not a step. -->
+     end. If a step has no check, it is two steps or it is not a step.
+     A step that quantifies — "every number the doc states has a source", "each
+     error path is tested" — owes its set, like the Goal: name the members, or
+     the reviewer finds one new unnamed instance every round. -->
 
 1. {{step}} — touches `{{path}}` — check: `{{command}}` → {{expected}}
 2. {{step}} — touches `{{path}}` — check: {{observable state}}
