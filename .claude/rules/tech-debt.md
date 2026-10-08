@@ -24,9 +24,10 @@ Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/pl
 
 Sixteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
-`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`, `e8202f7`. They close every open entry in
-`~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
-asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
+`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`, `e8202f7`. They close every entry in
+`~/.claude-belay/feedback/` but the two 2026-10-08 ones on `/expand-phase`, still open.
+`tests/corporate-smoke.sh` covers them only as documentation asserts: each one checks that a
+sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
 
 The consumer's fix to its `done` scaffold phase ran end to end on `6c68885` and passed
