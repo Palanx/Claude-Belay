@@ -16,7 +16,7 @@ paths:
 
 # Tech debt
 
-## Phase-workflow fixes shipped without a live run (reviewed 2026-10-01)
+## Phase-workflow fixes shipped without a live run (reviewed 2026-10-08)
 
 Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/plan-feature.md`,
 `commands/expand-phase.md`, `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`,
@@ -54,6 +54,16 @@ escape was right. Even so, the coarse key had already collided in round 2, where
 effect. That `belay-debt:` in `/validate-phase` is real; take its upgrade path once a
 collision joins two findings with no shared cause.
 
+A later phase on `073e35c` confirmed the escape cap (`4fafb3c`). It escaped once in round 3.
+Its key recurred in the third round after the re-expansion, and the command offered close /
+re-expand / re-cut instead of setting `pending` and named `commands/validate-phase.md` on
+`upstream:`. The operator closed with the open findings recorded as Deviations. The same
+phase diverged on two others, both reported through `/belay-feedback`: the re-expansion wrote an unenumerated "every
+place the guide says…" Plan claim that `/expand-phase`'s closure self-test (`722caf2`) let
+through and validation step 6 caught; and the gate carry-over (`7025e5b`) could not fire,
+because the step-4 index rebuild changed the tree after the step-2 fingerprint and the guard
+grep matched package-installed files.
+
 Fix: observe each case below in a phase that produces it for its own reasons, and send
 anything that diverges back through `/belay-feedback`. Never stage one in a consumer: an
 edit made to test belay lands in that project's history for no reason of its own, and a
@@ -73,10 +83,6 @@ it works.
   quantifies over an unenumerated set ("every number the doc states has a source") name its
   members, or cuts it back, before validation sees it. Needs a re-expansion of a spec that
   carries such a step.
-- Escape cap (`4fafb3c`): in a phase whose `notes.md` already holds an `escaped to
-  /expand-phase` verdict, a recurring key offers close / re-expand / re-cut instead of setting
-  `pending`, and names `commands/validate-phase.md` on the `upstream:` line. Needs a phase whose
-  key recurs again after a re-expansion.
 - Gate carry-over (`7025e5b`): a round whose tree fingerprint matches the previous passing round
   records `(carried over)` and skips `scripts/check.sh`. Needs a project where no tracked
   non-Markdown file names `spec.md`, `notes.md` or `docs/phases`, and a round that only amends
