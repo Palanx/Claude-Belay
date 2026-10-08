@@ -4,6 +4,9 @@ paths:
   - commands/implement-phase.md
   - commands/plan-feature.md
   - templates/spec.md
+  - scripts/check.sh
+  - hooks/lib/common.sh
+  - hooks/lib/detect-toolchain.sh
   - templates/notes.md
   - commands/expand-phase.md
   - docs/adr/0005-a-defect-in-a-done-phase-gets-a-new-row.md
@@ -19,9 +22,9 @@ Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/pl
 `commands/expand-phase.md`, `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`,
 `docs/adr/0006-*.md`, `docs/adr/0007-*.md`
 
-Fourteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+Fifteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
-`c4b6c01`, `722caf2`, `4fafb3c`. They close every open entry in
+`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -74,6 +77,10 @@ it works.
   /expand-phase` verdict, a recurring key offers close / re-expand / re-cut instead of setting
   `pending`, and names `commands/validate-phase.md` on the `upstream:` line. Needs a phase whose
   key recurs again after a re-expansion.
+- Gate carry-over (`7025e5b`): a round whose tree fingerprint matches the previous passing round
+  records `(carried over)` and skips `scripts/check.sh`. Needs a project where no tracked
+  non-Markdown file names `spec.md`, `notes.md` or `docs/phases`, and a round that only amends
+  the spec.
 
 Delete each case once it has been observed, and the entry with the last one.
 
@@ -111,3 +118,33 @@ Fix, cheapest first:
 
 Where it was found: validation of a consumer phase, while measuring whether the review should run
 over finite sets. That measurement excludes phases like this one: they test this problem, not that.
+
+## Every test runs as one category, at every gate (reviewed 2026-10-08)
+
+Files: `hooks/lib/detect-toolchain.sh`, `hooks/lib/common.sh`, `scripts/check.sh`,
+`commands/validate-phase.md`, `commands/implement-phase.md`
+
+`toolchain.json` has one `test` command per project, and every caller runs all of it: each Plan
+step whose check calls the suite, every `/validate-phase` round's step 2, and CI. Nothing
+distinguishes a fast unit test from an expensive tier, such as a mutation suite that regenerates
+and runs every mutant on every call. One consumer has exactly that tier, and its phases call the
+suite several times per step and once per validation round, so the cost multiplies with the round
+count.
+
+Nothing breaks: this costs time, not correctness. `7025e5b` removes the re-run when a round
+changed nothing a gate can read. The owner of an expensive tier can make it incremental itself,
+for example with a per-mutant cache keyed on content, without belay knowing.
+
+Fix, cheapest first:
+- Document the project-side pattern in the README: an expensive tier caches its own results
+  keyed on its inputs and runs whole only in CI. No schema change. It relies on each project
+  doing it right.
+- Add a category for the expensive tier, with a rule for when it runs (once per validation
+  round, never in a Plan step check). That is a schema change in three places: the emitter in
+  `detect-toolchain.sh`, the accessor in `common.sh`, and every consumer (`check.sh`,
+  `/validate-phase`, `/implement-phase`, CI). It also needs a definition of "expensive" that
+  detection can apply, or the tier is always hand-declared in `toolchain.manual.json`.
+
+Take the second only when a second project needs a separate tier. With one project, the first
+fix and that project's own cache cover it.
+
