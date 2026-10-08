@@ -61,6 +61,7 @@ CLAUDE.md                          # <150 lines, pointer table — the only alwa
     ├── boundaries.rules           # layer + deny lines (executable form of the dependency rule)
     ├── belay-version              # package commit this install came from (stamped by install.sh)
     ├── secret-allowlist           # optional: regexes to ignore in the builtin secret scan
+    ├── carry-over-exempt          # optional: your files /validate-phase's carry-over guard may ignore
     └── protected-branches         # optional: branch regexes where direct commits are blocked
 docs/
 ├── product/requirements.md        # what & why (bootstrap) 
@@ -344,7 +345,8 @@ delete lines by hand if it gets noisy.
 
 **Customize (project-owned):** `.claude/workflow/boundaries.rules` (via the entry
 command + ADRs), `.claude/workflow/toolchain.manual.json` (commands detection missed
-or got wrong), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
+or got wrong), `.claude/workflow/carry-over-exempt` (files you vouch never read a phase's
+`spec.md` or `notes.md`), `CLAUDE.md`, everything under `docs/` except `docs/index/` and
 `docs/templates/`.
 
 **Leave alone (package-owned, overwritten on re-install):** `.claude/hooks/*`,
@@ -663,7 +665,8 @@ Categories come from `toolchain.json`, so `check.sh` and `/validate-phase` run t
 commands by construction. A validation round whose tree differs from the previous passing round
 only in the phase's `spec.md` and `notes.md` reuses that pass instead of re-running the suite,
 unless a tracked non-Markdown file the package did not install names those paths,
-`docs/phases` or `docs/index`. `--staged` is what the `--git-hook` pre-commit hook executes.
+`docs/phases` or `docs/index`. A file of yours that names them but never reads a phase's
+`spec.md` or `notes.md` goes in `.claude/workflow/carry-over-exempt`, one path per line. `--staged` is what the `--git-hook` pre-commit hook executes.
 Exit 1 if anything failed; an unconfigured category is a loud `workflow gap:` line, not a
 failure.
 

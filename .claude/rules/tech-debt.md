@@ -88,10 +88,10 @@ it works.
 - Default-deny parser contract (`8461b63`): a Plan step that binds a parser or validator is
   written as its accepted subset plus "anything else is an error", and the reviewer stops
   finding one new input per round. Needs a phase that specifies a parser or validator.
-- Gate carry-over (`7025e5b`, `e8202f7`): a round whose tree fingerprint matches the previous passing round
-  records `(carried over)` and skips `scripts/check.sh`. Needs a project where no tracked
-  non-Markdown file names `spec.md`, `notes.md` or `docs/phases`, and a round that only amends
-  the spec.
+- Gate carry-over (`7025e5b`, `e8202f7`, and the project exemption list): a round whose tree
+  fingerprint matches the previous passing round records `(carried over)` and skips
+  `scripts/check.sh`. Needs a project whose guard hits are all package-installed or listed in
+  `.claude/workflow/carry-over-exempt`, and a round that only amends the spec.
 
 Delete each case once it has been observed, and the entry with the last one.
 

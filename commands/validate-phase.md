@@ -85,12 +85,18 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    `fail`; and this guard prints nothing — a tracked non-Markdown file naming them may be a
    gate that reads them, so one hit means run:
    ```bash
-   git grep -lE 'spec\.md|notes\.md|docs/phases|docs/index' -- ':!*.md' ':!.claude/workflow/installed' |
-     grep -vxF -f .claude/workflow/installed
+   git grep -lE 'spec\.md|notes\.md|docs/phases|docs/index' -- ':!*.md' ':!.claude/workflow/installed' \
+       ':!.claude/workflow/carry-over-exempt' |
+     grep -vxF -f <(cat .claude/workflow/installed .claude/workflow/carry-over-exempt 2>/dev/null)
    ```
    Files the package installed are dropped from the hits: this command vouches that none of its
    own hooks or scripts reads a phase document, and a normal-mode install tracks them, so
-   without the drop the guard hits in every project.
+   without the drop the guard hits in every project. `.claude/workflow/carry-over-exempt` is the
+   project's form of that vouch, one path per line (a `#` line never equals a path, so it serves
+   as a comment): files that name a phase path but never read this phase's `spec.md` or
+   `notes.md` — a comment, or a test that reads only `PHASES.md`, which the fingerprint already
+   covers. Never add a file to it yourself; the operator vouches for it, and a wrong line
+   carries a stale pass for one round.
    Then copy that line, append `(carried over)`, and reprint its `workflow gap:` warnings.
    Anything else runs the script. Never carry over a failure: a re-run is how a flaky or
    environmental one clears. A fixed list of exempt workflow files was rejected: a project's

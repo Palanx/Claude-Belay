@@ -1183,9 +1183,17 @@ check "/validate-phase carries a pass over only on an unchanged tree fingerprint
 # The first live run never carried over: step 4's index rebuild changed the tree after step 2
 # hashed it, and the guard matched hooks the package itself installs, in every project.
 check "/validate-phase re-fingerprints after an index rebuild and drops installed files from the guard" \
-  bash -c 'sed -n "/^2\. \*\*Project-wide gates/,/^3\. /p" "$1" | grep -qF "grep -vxF -f .claude/workflow/installed" &&
+  bash -c 'sed -n "/^2\. \*\*Project-wide gates/,/^3\. /p" "$1" | grep -qF "grep -vxF -f <(cat .claude/workflow/installed" &&
            sed -n "/^4\. \*\*Index freshness/,/^5\. /p" "$1" | grep -qF "gates tree:"' \
   _ "$PKG/commands/validate-phase.md"
+# The guard still hit in a consumer whose only real reader read fingerprinted files, and the rest
+# were comments: a project needs to vouch for its own files the way the manifest vouches for ours.
+# The list is project-owned, so the README has to say so or a re-install looks like its owner.
+check "/validate-phase drops the project's vouched files from the guard, and the README owns the list" \
+  bash -c 'sed -n "/^2\. \*\*Project-wide gates/,/^3\. /p" "$1" | grep -qF ".claude/workflow/carry-over-exempt" &&
+           sed -n "/^\*\*Customize (project-owned)/,/^\*\*Leave alone/p" "$2" | grep -qF ".claude/workflow/carry-over-exempt" &&
+           tr "\n" " " < "$2" | grep -qF "carry-over-exempt"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/README.md"
 check "/validate-phase escapes on its own once per phase, then hands recurrence to the operator" \
   bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "**Once per phase.**" &&
            grep -F "Round cap (iteration 3+" "$1" | grep -qF "after an earlier escape" &&
