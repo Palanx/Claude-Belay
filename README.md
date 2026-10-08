@@ -660,7 +660,9 @@ scripts/check.sh --staged           # the file gates on staged files + the commi
 ```
 
 Categories come from `toolchain.json`, so `check.sh` and `/validate-phase` run the same
-commands by construction. `--staged` is what the `--git-hook` pre-commit hook executes.
+commands by construction. A validation round whose tree differs from the previous passing round
+only in the phase's `spec.md` and `notes.md` reuses that pass instead of re-running the suite,
+unless a tracked non-Markdown file names those paths or `docs/phases`. `--staged` is what the `--git-hook` pre-commit hook executes.
 Exit 1 if anything failed; an unconfigured category is a loud `workflow gap:` line, not a
 failure.
 

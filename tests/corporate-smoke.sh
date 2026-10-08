@@ -1171,6 +1171,15 @@ check "/validate-phase reports a recurrence-free round cap upstream" \
 # A recurrence escaped to /expand-phase every time and each escape reset the count, so a phase
 # whose re-expansion never closed the doubt escaped without end: nine rounds, two escapes, code
 # gates clean throughout. One automatic escape per phase; after it, recurrence is the operator's.
+# A round that only amended the spec re-ran the whole project suite, every round. Carrying a
+# pass over is safe only on a tree fingerprint that leaves out nothing but the phase's spec.md and
+# notes.md, and only when no gate can name them; the record has to carry the fingerprint.
+check "/validate-phase carries a pass over only on an unchanged tree fingerprint" \
+  bash -c 'sed -n "/^2\. \*\*Project-wide gates/,/^3\. /p" "$1" | grep -qF "git write-tree" &&
+           sed -n "/^2\. \*\*Project-wide gates/,/^3\. /p" "$1" | grep -qF "Never carry over a failure" &&
+           sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- gates tree:" &&
+           tr "\n" " " < "$2" | grep -qF "reuses that pass"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/README.md"
 check "/validate-phase escapes on its own once per phase, then hands recurrence to the operator" \
   bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "**Once per phase.**" &&
            grep -F "Round cap (iteration 3+" "$1" | grep -qF "after an earlier escape" &&

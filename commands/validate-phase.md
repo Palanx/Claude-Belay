@@ -70,6 +70,28 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    reports as a `workflow gap:`, print that warning verbatim in the report — an unchecked
    category is stated, never silent (P7).
 
+   **Carry over a pass the tree cannot have changed.** A round that only amended the spec
+   re-runs a suite nothing it touched can affect. First fingerprint the working tree minus
+   this phase's two workflow files:
+   ```bash
+   idx="$(mktemp -u)"; cp "$(git rev-parse --git-path index)" "$idx"
+   GIT_INDEX_FILE="$idx" git add -A &&
+   GIT_INDEX_FILE="$idx" git rm -q --cached --ignore-unmatch docs/phases/$1/spec.md docs/phases/$1/notes.md &&
+   GIT_INDEX_FILE="$idx" git write-tree; rm -f "$idx"
+   ```
+   Record the hash on `- gates tree:` every round, run or carried over. Skip
+   `scripts/check.sh` only if all three hold: the most recent `## Validation` section in
+   notes.md has `- gates tree:` with this same hash; its `- project gates:` line has no
+   `fail`; and `git grep -lE 'spec\.md|notes\.md|docs/phases' -- ':!*.md'` prints nothing — a
+   tracked non-Markdown file naming them may be a gate that reads them, so one hit means run.
+   Then copy that line, append `(carried over)`, and reprint its `workflow gap:` warnings.
+   Anything else runs the script. Never carry over a failure: a re-run is how a flaky or
+   environmental one clears. A fixed list of exempt workflow files was rejected: a project's
+   own gates can read `PHASES.md` or another phase's documents, and those change on their own.
+   belay-debt: the fingerprint sees tracked and unignored files only, so a gate that reads an
+   ignored file or a changed tool version is trusted stale. Upgrade path: none until a gate
+   declares its inputs; the grep guard and the pass-only rule bound the damage to one round.
+
 3. **Boundary sweep.** Run `scripts/check.sh --files <every source file in the phase's
    file set>` (the file set is defined above). This is the same gate the edit path runs,
    re-run as a batch in case any edit bypassed it, plus `include-check.sh`, which the edit
@@ -180,7 +202,8 @@ Append to `docs/phases/$1/notes.md`:
 ```
 ## Validation — <date>
 - criteria: <n> passed / <n> failed
-- project gates: test <pass|fail|gap>, lint <...>, typecheck <...>
+- project gates: test <pass|fail|gap>, lint <...>, typecheck <...> [(carried over)]
+- gates tree: <the step-2 fingerprint hash>
 - boundary sweep: <clean | not swept: no active deny rules | not swept: no file in the set is under a declared layer | violations listed above>
 - independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent> (settled: <n> — <criterion> … | none) (unstated: <n> — <what> … | none)
 - closure test: <pass|fail: reason>
