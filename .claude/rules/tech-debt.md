@@ -22,9 +22,9 @@ Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/pl
 `commands/expand-phase.md`, `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`,
 `docs/adr/0006-*.md`, `docs/adr/0007-*.md`
 
-Fifteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+Sixteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
-`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`. They close every open entry in
+`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`, `e8202f7`. They close every open entry in
 `~/.claude-belay/feedback/`. `tests/corporate-smoke.sh` covers them only as documentation
 asserts: each one checks that a sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -83,7 +83,7 @@ it works.
   quantifies over an unenumerated set ("every number the doc states has a source") name its
   members, or cuts it back, before validation sees it. Needs a re-expansion of a spec that
   carries such a step.
-- Gate carry-over (`7025e5b`): a round whose tree fingerprint matches the previous passing round
+- Gate carry-over (`7025e5b`, `e8202f7`): a round whose tree fingerprint matches the previous passing round
   records `(carried over)` and skips `scripts/check.sh`. Needs a project where no tracked
   non-Markdown file names `spec.md`, `notes.md` or `docs/phases`, and a round that only amends
   the spec.
