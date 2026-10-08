@@ -1239,6 +1239,23 @@ check "a quantified claim owes its set in every spec section, checked at expansi
            sed -n "/^## Plan/,/^## Acceptance/p" "$2" | grep -qF "owes its set" &&
            sed -n "/Closure self-test/,/Update status/p" "$3" | grep -qF "quantified claim in any section"' \
   _ "$PKG/commands/validate-phase.md" "$PKG/templates/spec.md" "$PKG/commands/expand-phase.md"
+# A re-expansion wrote "every place the guide tells the operator to…" and the self-test let it
+# through; validation caught it a round later. Whether the self-test missed it or never ran is
+# unknown, so it became a word sweep (a miss needs a word off the list) whose result the final
+# step prints (a skip shows as a missing line).
+check "/expand-phase sweeps quantifier words and prints the result" \
+  bash -c 'sec="$(sed -n "/Closure self-test/,/Update status/p" "$1")"
+           printf "%s" "$sec" | grep -qF "wherever" && printf "%s" "$sec" | grep -qF "re-expansion" &&
+           sed -n "/^## Mandatory final step/,/^## Failure/p" "$1" | grep -qF "quantifier sweep"' \
+  _ "$PKG/commands/expand-phase.md"
+# A Plan bound a parser by listing what it rejects — four cases, then seven — and each fresh
+# reviewer found the next input outside the list, until the escape cap stopped the loop. A list
+# of rejections is an unenumerated "everything else is accepted". Reviewing spec→diff instead
+# would not help: every one of those findings cited a spec sentence.
+check "a parser contract is default-deny, at expansion and in the template" \
+  bash -c 'sed -n "/Closure self-test/,/Update status/p" "$1" | grep -qF "anything else is an error" &&
+           sed -n "/^## Plan/,/^## Acceptance/p" "$2" | grep -qF "anything else is an error"' \
+  _ "$PKG/commands/expand-phase.md" "$PKG/templates/spec.md"
 check "/validate-phase counts iterations against the current spec" \
   bash -c 'grep -qF "against the current spec" "$1" && grep -qF "escaped to /expand-phase\` verdict" "$1"' \
   _ "$PKG/commands/validate-phase.md"

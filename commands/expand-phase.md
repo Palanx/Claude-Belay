@@ -68,20 +68,32 @@ into the plan: the spec is written *after* the phases it depends on have reveale
    executing it by hand rather than an agent (`/implement-phase --implemented` is a
    supported route, so this is not hypothetical). Every file it tells you to touch:
    reachable from a Context pointer? Every term: defined in the spec or in a pointed-to
-   file? Every step: checkable without reading ahead to the Acceptance criteria? Every
-   quantified claim in any section — "every X", "each Y", "all N of Z" — names its
-   members? An open one ("every claim the operator guide makes is sourced") is cut to a closed
-   list or deleted here: `/validate-phase`'s closure test fails it, and its reviewer
-   returns one new instance per round until the set is written. Fix the
+   file? Every step: checkable without reading ahead to the Acceptance criteria? Fix the
    spec until yes — a pointer you add now costs one line; the same knowledge missing at
    implementation time costs a blind repo search.
+
+   Then hold every quantified claim in any section to its set — by sweep, not by reading,
+   because reading lets one through. List every spec sentence containing `every`, `each`,
+   `all`, `any`, `wherever`, `whenever` or `no other`, and leave each one (a) naming its
+   members, (b) quantifying over a set the spec already names, or (c) cut to a closed list or
+   deleted. An open one — "every claim the operator guide makes is sourced", "every place the
+   guide tells the operator to change X" — quantifies over a document's sentences:
+   `/validate-phase`'s closure test fails it, and its reviewer returns one new instance per
+   round until the set is written. On a re-expansion, sweep the whole spec, not only the
+   sentences it rewrote.
+
+   A Plan step that binds a parser, validator or checker states the input it accepts and that
+   anything else is an error. Listing the inputs it rejects is the open form of the same
+   claim — "every other input is fine" — and each fresh reviewer finds the next input outside
+   the list. Rewrite it to the accepted subset here.
 
 7. **Update status** in `docs/phases/PHASES.md`: `pending` → `expanded`.
 
 ## Mandatory final step (P6)
 
 The spec and the status update ARE the disk outcome — verify both are written, then print
-the spec's acceptance-criteria section verbatim so the operator sees exactly what "done"
+the step-6 quantifier sweep — one line per sentence it hit and its disposition (a/b/c), or
+`quantifier sweep: no hits` — and the spec's acceptance-criteria section verbatim so the operator sees exactly what "done"
 will mean before implementation starts.
 
 ## Failure modes

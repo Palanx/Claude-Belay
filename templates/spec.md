@@ -56,7 +56,10 @@ exists/works after this phase that didn't before.}}
      end. If a step has no check, it is two steps or it is not a step.
      A step that quantifies — "every number the doc states has a source", "each
      error path is tested" — owes its set, like the Goal: name the members, or
-     the reviewer finds one new unnamed instance every round. -->
+     the reviewer finds one new unnamed instance every round.
+     A step that binds a parser or validator states what it accepts and that
+     anything else is an error — never a list of what it rejects, which the
+     reviewer extends by one input every round. -->
 
 1. {{step}} — touches `{{path}}` — check: `{{command}}` → {{expected}}
 2. {{step}} — touches `{{path}}` — check: {{observable state}}
