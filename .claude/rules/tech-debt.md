@@ -76,3 +76,38 @@ it works.
   key recurs again after a re-expansion.
 
 Delete each case once it has been observed, and the entry with the last one.
+
+## Prose documents audited sentence by sentence do not converge (reviewed 2026-10-07)
+
+Files: `commands/validate-phase.md` (step 5, step 6 "A quantified claim owes its set"),
+`commands/expand-phase.md` (step 6 Closure self-test), `templates/spec.md` (`## Plan` comment)
+
+When a phase's diff includes a non-executable document for the operator (a bench or setup guide)
+and the spec binds it with a sourcing rule ("every number, command and output the guide states is
+in this list"), the step-5 reviewer audits it sentence by sentence. Each fresh reviewer reads the
+rule more strictly than the last: claims outside the list, then paraphrases, then a list row's
+exact wording. Almost every one of those findings is an `undecidable` with no settling criterion.
+Closing the set (`722caf2`) bounded the claims, not the ways a sentence can paraphrase them. In
+one consumer phase this took 11 rounds and 3 re-expansions, with every criterion and project gate
+passing from the first re-expansion on. The spec grew from 17 KB to 31 KB, and the operator closed
+the phase with one open finding whose content was correct. Running the review over finite sets
+instead of hunk by hunk would not address this: the rule lives in the spec, so a spec-to-diff pass
+audits it the same way.
+
+Nothing loops today because `4fafb3c` bounds it: after one automatic re-expansion, a recurring key
+goes to the operator, who can close with every code gate clean. The cost is a decision per
+phase that ships such a document, after two or three wasted rounds.
+
+Fix, cheapest first:
+- `/expand-phase` refuses a sourcing rule over a prose document and narrows it to the commands and
+  expected outputs an acceptance criterion executes or greps. It costs review of the prose itself:
+  a wrong number in a sentence no criterion reads goes unchecked. That class once caught a real
+  wrong figure an operator would have followed.
+- The reviewer reports an `undecidable` with no settling criterion against a non-executable
+  document as taste and does not count it. It needs a mechanical way to tell a document from code
+  (extension, or a path the spec declares), and the same unchecked-prose cost.
+- Make the guide executable: one criterion per command it lists. That is per-project tooling, and
+  it often needs hardware a fresh clone does not have.
+
+Where it was found: validation of a consumer phase, while measuring whether the review should run
+over finite sets. That measurement excludes phases like this one: they test this problem, not that.
