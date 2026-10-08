@@ -22,10 +22,10 @@ Files: `commands/validate-phase.md`, `commands/implement-phase.md`, `commands/pl
 `commands/expand-phase.md`, `templates/spec.md`, `templates/notes.md`, `docs/adr/0005-*.md`,
 `docs/adr/0006-*.md`, `docs/adr/0007-*.md`
 
-Sixteen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
+Seventeen commits change how the phase commands route findings: `fe6d9da`, `f449dd2`, `1502fdf`,
 `da3af97`, `fd81d40`, `471dda6`, `6c68885`, `9a61992`, `cdcf9ff`, `e71f341`, `f87994c`,
-`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`, `e8202f7`. They close every entry in
-`~/.claude-belay/feedback/` but the two 2026-10-08 ones on `/expand-phase`, still open.
+`c4b6c01`, `722caf2`, `4fafb3c`, `7025e5b`, `e8202f7`, `8461b63`. They close every entry in
+`~/.claude-belay/feedback/`.
 `tests/corporate-smoke.sh` covers them only as documentation asserts: each one checks that a
 sentence exists, and each was seen to fail before its fix.
 Only a live run shows whether a session actually behaves the way the prose says.
@@ -80,10 +80,14 @@ it works.
   close / re-expand / re-cut, close only with steps 1–4 clean, and names
   `commands/validate-phase.md` on the `upstream:` line. Needs a phase that reaches a third
   round with no key repeated.
-- Quantified Plan claim (`722caf2`): `/expand-phase`'s closure self-test makes a Plan step that
-  quantifies over an unenumerated set ("every number the doc states has a source") name its
-  members, or cuts it back, before validation sees it. Needs a re-expansion of a spec that
-  carries such a step.
+- Quantified Plan claim (`722caf2`, `8461b63`): one live run diverged — a re-expansion wrote an
+  unenumerated "every place the guide tells…" and the self-test let it through. `8461b63` made
+  the check a quantifier-word sweep over the whole spec on re-expansion, printed at the final
+  step. To observe: the sweep line appears in a real re-expansion and flags an unenumerated
+  claim before validation sees it. Needs a re-expansion of a spec that carries such a step.
+- Default-deny parser contract (`8461b63`): a Plan step that binds a parser or validator is
+  written as its accepted subset plus "anything else is an error", and the reviewer stops
+  finding one new input per round. Needs a phase that specifies a parser or validator.
 - Gate carry-over (`7025e5b`, `e8202f7`): a round whose tree fingerprint matches the previous passing round
   records `(carried over)` and skips `scripts/check.sh`. Needs a project where no tracked
   non-Markdown file names `spec.md`, `notes.md` or `docs/phases`, and a round that only amends
