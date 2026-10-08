@@ -1180,6 +1180,12 @@ check "/validate-phase carries a pass over only on an unchanged tree fingerprint
            sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -qF -- "- gates tree:" &&
            tr "\n" " " < "$2" | grep -qF "reuses that pass"' \
   _ "$PKG/commands/validate-phase.md" "$PKG/README.md"
+# The first live run never carried over: step 4's index rebuild changed the tree after step 2
+# hashed it, and the guard matched hooks the package itself installs, in every project.
+check "/validate-phase re-fingerprints after an index rebuild and drops installed files from the guard" \
+  bash -c 'sed -n "/^2\. \*\*Project-wide gates/,/^3\. /p" "$1" | grep -qF "grep -vxF -f .claude/workflow/installed" &&
+           sed -n "/^4\. \*\*Index freshness/,/^5\. /p" "$1" | grep -qF "gates tree:"' \
+  _ "$PKG/commands/validate-phase.md"
 check "/validate-phase escapes on its own once per phase, then hands recurrence to the operator" \
   bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "**Once per phase.**" &&
            grep -F "Round cap (iteration 3+" "$1" | grep -qF "after an earlier escape" &&

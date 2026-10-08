@@ -82,8 +82,15 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    Record the hash on `- gates tree:` every round, run or carried over. Skip
    `scripts/check.sh` only if all three hold: the most recent `## Validation` section in
    notes.md has `- gates tree:` with this same hash; its `- project gates:` line has no
-   `fail`; and `git grep -lE 'spec\.md|notes\.md|docs/phases' -- ':!*.md'` prints nothing — a
-   tracked non-Markdown file naming them may be a gate that reads them, so one hit means run.
+   `fail`; and this guard prints nothing — a tracked non-Markdown file naming them may be a
+   gate that reads them, so one hit means run:
+   ```bash
+   git grep -lE 'spec\.md|notes\.md|docs/phases|docs/index' -- ':!*.md' ':!.claude/workflow/installed' |
+     grep -vxF -f .claude/workflow/installed
+   ```
+   Files the package installed are dropped from the hits: this command vouches that none of its
+   own hooks or scripts reads a phase document, and a normal-mode install tracks them, so
+   without the drop the guard hits in every project.
    Then copy that line, append `(carried over)`, and reprint its `workflow gap:` warnings.
    Anything else runs the script. Never carry over a failure: a re-run is how a flaky or
    environmental one clears. A fixed list of exempt workflow files was rejected: a project's
@@ -122,7 +129,10 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
    the status is clean of belay paths.
 
 4. **Index freshness.** Run `scripts/build-index.sh --check`; if stale, run
-   `scripts/build-index.sh` so the next phase plans against reality.
+   `scripts/build-index.sh` so the next phase plans against reality. If it rebuilt, take
+   step 2's fingerprint again and record that hash on `- gates tree:` instead: the rebuild
+   rewrites tracked index files, so a hash taken before it never matches the next round's and
+   the carry-over could not fire after any round that found the index stale.
 
 5. **Independent spec review.** Only once 1–4 are clean — never review code the cheap gates
    already reject. Dispatch ONE subagent with exactly four inputs: `CLAUDE.md`
@@ -203,7 +213,7 @@ Append to `docs/phases/$1/notes.md`:
 ## Validation — <date>
 - criteria: <n> passed / <n> failed
 - project gates: test <pass|fail|gap>, lint <...>, typecheck <...> [(carried over)]
-- gates tree: <the step-2 fingerprint hash>
+- gates tree: <the step-2 fingerprint hash, re-taken after a step-4 rebuild>
 - boundary sweep: <clean | not swept: no active deny rules | not swept: no file in the set is under a declared layer | violations listed above>
 - independent review: <clean | contradicts (code-side|spec-side): <what> — <evidence> | undecidable: <what was missing> | skipped: no subagent> (settled: <n> — <criterion> … | none) (unstated: <n> — <what> … | none)
 - closure test: <pass|fail: reason>
