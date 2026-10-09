@@ -65,6 +65,11 @@ through and validation step 6 caught; and the gate carry-over (`7025e5b`) could 
 because the step-4 index rebuild changed the tree after the step-2 fingerprint and the guard
 grep matched package-installed files.
 
+A later phase on `fb7780a` confirmed the gate carry-over (`7025e5b`, `e8202f7`, `fb7780a`): its
+second round only amended the spec, recorded the same `- gates tree:` hash as the first, and wrote
+`project gates: … (carried over)`, with every guard hit listed in the project's
+`.claude/workflow/carry-over-exempt`.
+
 Fix: observe each case below in a phase that produces it for its own reasons, and send
 anything that diverges back through `/belay-feedback`. Never stage one in a consumer: an
 edit made to test belay lands in that project's history for no reason of its own, and a
@@ -88,10 +93,6 @@ it works.
 - Default-deny parser contract (`8461b63`): a Plan step that binds a parser or validator is
   written as its accepted subset plus "anything else is an error", and the reviewer stops
   finding one new input per round. Needs a phase that specifies a parser or validator.
-- Gate carry-over (`7025e5b`, `e8202f7`, and the project exemption list): a round whose tree
-  fingerprint matches the previous passing round records `(carried over)` and skips
-  `scripts/check.sh`. Needs a project whose guard hits are all package-installed or listed in
-  `.claude/workflow/carry-over-exempt`, and a round that only amends the spec.
 
 Delete each case once it has been observed, and the entry with the last one.
 
@@ -159,3 +160,31 @@ Fix, cheapest first:
 Take the second only when a second project needs a separate tier. With one project, the first
 fix and that project's own cache cover it.
 
+## The step-5 reviewer's starvation is an instruction, not a missing permission (reviewed 2026-10-09)
+
+Files: `commands/validate-phase.md` (step 5)
+
+Step 5 says the reviewer "cannot read" the withheld files. That is false: the subagent it
+dispatches has the session's tools and can read the whole repository. What keeps it starved is
+the prompt telling it to use only its four inputs. One consumer phase's round-2 reviewer ran a
+`diff -q` of its `CLAUDE.md` copy against the repository's, outside those inputs. It recorded the
+call on the review line and did not use it, so that verdict stayed clean.
+
+Nothing breaks today because the reviewer obeyed the rest of the instruction and reported the one
+call it made. The property under test, a reviewer who does not know what the session meant, holds
+only while that stays true. A reviewer that reads `notes.md` or the dependency notes judges the
+diff against what was meant and stops seeing what the spec never said, and no record shows it
+unless the reviewer volunteers it.
+
+If a `## Validation` record shows a reviewer reaching outside its four inputs again, in any
+consumer, send it through `/belay-feedback` with the `- independent review:` line, and mark
+whether the outside read fed a verdict. A second case, or one that fed a verdict, is when to fix
+this.
+
+Fix, cheapest first:
+- Correct the "cannot read" sentence to say the isolation is instructed, and have the review line
+  record any read outside the four inputs. Costs nothing, but it detects a breach only when the
+  reviewer reports it.
+- Dispatch the reviewer with its tools withheld (no Read, Grep, Glob or Bash), passing the four
+  inputs inline. This enforces the starvation, but it depends on the agent runtime offering a
+  restricted tool set, and Cursor's adapter may not have one.
