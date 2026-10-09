@@ -181,6 +181,13 @@ consumer, send it through `/belay-feedback` with the `- independent review:` lin
 whether the outside read fed a verdict. A second case, or one that fed a verdict, is when to fix
 this.
 
+Pending in the consumer as of 2026-10-09: this log reaches belay sessions only, and the breach
+shows up in a consumer's `## Validation` record. Once that consumer's open phase closes (never
+mid-phase: the edit would land in the phase's diff and change its gate fingerprint), add a line
+to its own debt log telling its sessions to send a reviewer read outside the four inputs through
+`/belay-feedback`. Scope that entry's `paths:` to where the record is written,
+`docs/phases/*/notes.md`. Delete this paragraph once the line is there.
+
 Fix, cheapest first:
 - Correct the "cannot read" sentence to say the isolation is instructed, and have the review line
   record any read outside the four inputs. Costs nothing, but it detects a breach only when the
