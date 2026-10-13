@@ -24,7 +24,9 @@ Written for a reader who saw none of the work happen.}}
      reviewer reads this section and no other, so it is what authorises a
      spec amendment — a decision, not an argument. Also: any file
      read/changed that the spec's pointers missed (that's a closure-test gap
-     — name the missing pointer). -->
+     — name the missing pointer). A changed acceptance criterion is written
+     `operator amended criterion: <old> → <new> — <evidence>`, and only
+     after the operator said yes. -->
 
 - {{deviation}} — or `None`
 

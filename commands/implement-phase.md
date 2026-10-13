@@ -71,7 +71,8 @@ substituting them, so read the id and the flag out of the prompt.
    after that bill is paid.
 
 6. **Run all acceptance criteria** from the spec, in order, once the plan is complete.
-   Fix failures and re-run until clean or genuinely blocked.
+   Fix failures and re-run until clean or genuinely blocked. A criterion that is itself wrong
+   is not yours to fix: see **Acceptance criterion impossible to satisfy** under Failure modes.
 
 ## Human-implemented mode (`--implemented`)
 

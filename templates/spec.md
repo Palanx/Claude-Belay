@@ -68,7 +68,9 @@ exists/works after this phase that didn't before.}}
 
 <!-- EXECUTABLE commands with expected outcomes (P3). "Works correctly" is not
      a criterion. Include phase-specific checks AND the project-wide gates.
-     /validate-phase runs these verbatim, in order. -->
+     /validate-phase runs these verbatim, in order. What a criterion asserts
+     changes only on the operator's word, recorded in Deviations as
+     `operator amended criterion: <old> → <new> — <evidence>`. -->
 
 ```
 {{command}}                                   # expect: {{observable outcome / exit 0}}

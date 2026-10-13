@@ -1178,12 +1178,15 @@ check "/validate-phase counts only reviewed rounds toward the round cap" \
 # A stale criterion could only be routed to /implement-phase, which let the agent rewrite it alone:
 # a red criterion turned green with no human in the loop. Both commands must stop for the operator
 # and write the same Deviations literal, or one of them is the way around the other.
-check "a criterion changes what it asserts only on the operator's word, in both commands" \
+check "a criterion changes what it asserts only on the operator's word, in both commands and their templates" \
   bash -c 'sed -n "/^1\. \*\*Acceptance criteria/,/^2\. /p" "$1" | grep -qF "criterion-side" &&
            sed -n "/^1\. \*\*Acceptance criteria/,/^2\. /p" "$1" | grep -qF "operator amended criterion:" &&
            grep -qF "operator amended criterion:" "$2" &&
-           tr "\n" " " < "$3" | grep -qF "only on the operator'"'"'s word"' \
-  _ "$PKG/commands/validate-phase.md" "$PKG/commands/implement-phase.md" "$PKG/README.md"
+           tr "\n" " " < "$3" | grep -qF "only on the operator'"'"'s word" &&
+           grep -qF "operator amended criterion:" "$4" &&
+           grep -qF "operator amended criterion:" "$5"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/commands/implement-phase.md" "$PKG/README.md" \
+    "$PKG/templates/spec.md" "$PKG/templates/notes.md"
 # A recurrence escaped to /expand-phase every time and each escape reset the count, so a phase
 # whose re-expansion never closed the doubt escaped without end: nine rounds, two escapes, code
 # gates clean throughout. One automatic escape per phase; after it, recurrence is the operator's.

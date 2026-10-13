@@ -13,6 +13,7 @@ paths:
   - docs/adr/0006-the-validation-loop-deletes-before-it-adds.md
   - docs/adr/0007-the-reviewer-sees-what-was-decided-and-the-loop-ends-on-recurrence.md
   - docs/adr/0009-a-criterion-changes-only-on-the-operators-word.md
+  - docs/adr/0010-only-reviewed-rounds-count-toward-the-round-cap.md
 ---
 
 # Tech debt
