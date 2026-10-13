@@ -528,7 +528,7 @@ and returns. From the third reviewed round against one spec (a round that failed
 the independent review does not count), a finding that comes back re-expands
 the spec once per phase; if none comes back, or one comes back after that re-expansion, the
 loop stops and the operator chooses: close (only with every code gate clean), re-expand, or
-re-cut. Each command's own file (`.claude/commands/*.md`) states its preconditions,
+re-cut. An acceptance criterion changes what it asserts only on the operator's word. Each command's own file (`.claude/commands/*.md`) states its preconditions,
 what it reads, and its failure modes.
 
 Three of the behaviours above are borrowed from the [Superpowers](https://github.com/obra/superpowers)

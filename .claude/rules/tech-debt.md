@@ -12,6 +12,7 @@ paths:
   - docs/adr/0005-a-defect-in-a-done-phase-gets-a-new-row.md
   - docs/adr/0006-the-validation-loop-deletes-before-it-adds.md
   - docs/adr/0007-the-reviewer-sees-what-was-decided-and-the-loop-ends-on-recurrence.md
+  - docs/adr/0009-a-criterion-changes-only-on-the-operators-word.md
 ---
 
 # Tech debt
@@ -86,6 +87,9 @@ it works.
   `commands/validate-phase.md` on `upstream:`. It diverged by counting a round whose review
   never ran; the count now skips `not run` review lines. To observe: a phase whose round 1
   fails on steps 1–4 does not reach the cap before its third reviewed round.
+- Criterion-side step-1 failure (ADR-0009): a step-1 failure classified `criterion-side` stops
+  for the operator and, on a yes, writes `operator amended criterion:`. Needs a phase whose
+  criterion goes stale for its own reasons.
 - Quantified Plan claim (`722caf2`, `8461b63`): one live run diverged — a re-expansion wrote an
   unenumerated "every place the guide tells…" and the self-test let it through. `8461b63` made
   the check a quantifier-word sweep over the whole spec on re-expansion, printed at the final

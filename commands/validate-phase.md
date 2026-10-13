@@ -60,7 +60,16 @@ exists to catch, so a diff that cannot show it turns three gates into no-ops tha
 1. **Acceptance criteria.** Run every command in the spec's Acceptance criteria section,
    in order, exactly as written. Record each command's pass/fail. They are executable by
    construction (P3) — if one turns out not to be runnable, that is itself a failure:
-   fix the criterion in spec.md and note the fix in notes.md.
+   fix the criterion in spec.md and note the fix in notes.md. A criterion that runs and
+   fails is the code's failure by default. It is the criterion's only when something already
+   recorded contradicts what it asserts — the spec, an ADR or a Deviations entry, cited, not a
+   reading of intent. Then classify it `criterion-side`, cite that evidence, propose the amended
+   criterion, and stop: changing what a criterion asserts is the operator's decision, never
+   yours, because no later gate questions it — the reviewer treats Deviations as authorised.
+   On a yes, amend spec.md, add the Deviations entry
+   `operator amended criterion: <old> → <new> — <evidence>`, and the failure routes to the
+   spec. No answer → it stays the code's: `returned to implementation`. A fix that only makes
+   a criterion runnable, with the same expected outcome, stays yours (ADR-0009).
 
 2. **Project-wide gates.** Run `scripts/check.sh` and record its output and exit code.
    It runs `test`, `lint` and `typecheck` in their project-wide forms — this catches
@@ -233,9 +242,9 @@ Append to `docs/phases/$1/notes.md`:
 
 On full pass: PHASES.md status → `done`. On any failure: status stays `in-progress`;
 report exactly which gate failed with its output — that error text is the input for the
-next iteration. Where that iteration happens depends on what failed: steps 1–4 and a
+next iteration. Where that iteration happens depends on what failed: steps 1–4 (except an operator-confirmed `criterion-side` criterion) and a
 code-side `contradicts` go back to `/implement-phase $1` (the code is wrong); a closure-test
-failure, an `undecidable` verdict or a spec-side `contradicts` is fixed in `spec.md` plus a notes.md Deviations entry
+failure, an `undecidable` verdict, a spec-side `contradicts` or an operator-confirmed `criterion-side` criterion is fixed in `spec.md` plus a notes.md Deviations entry
 and re-validated from here (the record is wrong). The verdict names the destination: a round whose every failure routes to the spec is `returned to spec`, and any other failed round — mixed ones included, since the code is fixed first — is `returned to implementation`. A cold session dispatches from that line. **Delete before you add.** A spec-side finding is closed by taking prose out first: if it
 is about a sentence — a claim the reviewer could not decide, or found false — delete that
 sentence, or cut it back to the conclusion it was supporting. Add a sentence only when the
@@ -288,5 +297,5 @@ of it depends on any of this being committed.
 ## Handoff
 
 Pass → `/expand-phase <next>` (the next pending phase whose dependencies are all done).
-Fail (`returned to implementation`) → `/implement-phase $1` with this validation report — unless every failure routes to the spec (closure test, `undecidable`, spec-side `contradicts`): then (`returned to spec`) amend `spec.md` and re-run `/validate-phase $1`.
+Fail (`returned to implementation`) → `/implement-phase $1` with this validation report — unless every failure routes to the spec (closure test, `undecidable`, spec-side `contradicts`, operator-confirmed `criterion-side` criterion): then (`returned to spec`) amend `spec.md` and re-run `/validate-phase $1`.
 Round cap (iteration 3+, no recurring key, or a recurrence after an earlier escape) → the operator's choice, never yours: close (`done (operator-closed at round cap: <n> open)`, only with steps 1–4 clean), re-expand (`/expand-phase $1`), or re-cut (`/plan-feature`). See **Gate failure** above.
