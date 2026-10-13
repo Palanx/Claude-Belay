@@ -81,10 +81,11 @@ it works.
 - `not-ours` (`1502fdf`): the declared paths leave the reviewer's file set and the record
   names them. Needs the operator to have edited a project-owned file (`CLAUDE.md`, an ADR)
   while the phase is open, for that project's own reasons.
-- Round cap (`f87994c`, `c4b6c01`): with no recurring key, round 3 stops and offers
-  close / re-expand / re-cut, close only with steps 1–4 clean, and names
-  `commands/validate-phase.md` on the `upstream:` line. Needs a phase that reaches a third
-  round with no key repeated.
+- Round cap (`f87994c`, `c4b6c01`): observed on `fb7780a`. Round 3 with no recurring key
+  stopped, offered close / re-expand / re-cut with close only on steps 1–4 clean, and named
+  `commands/validate-phase.md` on `upstream:`. It diverged by counting a round whose review
+  never ran; the count now skips `not run` review lines. To observe: a phase whose round 1
+  fails on steps 1–4 does not reach the cap before its third reviewed round.
 - Quantified Plan claim (`722caf2`, `8461b63`): one live run diverged — a re-expansion wrote an
   unenumerated "every place the guide tells…" and the self-test let it through. `8461b63` made
   the check a quantifier-word sweep over the whole spec on re-expansion, printed at the final

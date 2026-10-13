@@ -1168,6 +1168,13 @@ check "/validate-phase offers an operator close only with every code gate clean"
 check "/validate-phase reports a recurrence-free round cap upstream" \
   bash -c 'grep -F "**Gate failure**" "$1" | grep -qF "is also a signal about this package"' \
   _ "$PKG/commands/validate-phase.md"
+# A consumer's round 1 failed on a stale criterion, so no reviewer ran, and the cap still fired
+# after the second review. The record's `not run` literal and the rule that skips it must agree.
+check "/validate-phase counts only reviewed rounds toward the round cap" \
+  bash -c 'sed -n "/^## Validation/,/^\`\`\`/p" "$1" | grep -E "^- independent review:" | grep -qF "not run: steps 1–4 failed" &&
+           grep -F "**Gate failure**" "$1" | grep -qF "line reads \`not run\`" &&
+           tr "\n" " " < "$2" | grep -qF "third reviewed round"' \
+  _ "$PKG/commands/validate-phase.md" "$PKG/README.md"
 # A recurrence escaped to /expand-phase every time and each escape reset the count, so a phase
 # whose re-expansion never closed the doubt escaped without end: nine rounds, two escapes, code
 # gates clean throughout. One automatic escape per phase; after it, recurrence is the operator's.

@@ -524,7 +524,8 @@ not proceed to real work.
 The loop: `/plan-feature` **once per feature**, then `/expand-phase → /implement-phase →
 /validate-phase` **per phase** until every row is `done`. A failed validation is not an
 exception — it hands the failing command's output back to `/implement-phase`, which fixes
-and returns. From the third round against one spec, a finding that comes back re-expands
+and returns. From the third reviewed round against one spec (a round that failed before
+the independent review does not count), a finding that comes back re-expands
 the spec once per phase; if none comes back, or one comes back after that re-expansion, the
 loop stops and the operator chooses: close (only with every code gate clean), re-expand, or
 re-cut. Each command's own file (`.claude/commands/*.md`) states its preconditions,
